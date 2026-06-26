@@ -1,0 +1,2101 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Balkan Naplata</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --navy: #0f2747; --navy-2: #16345c; --accent: #2563eb; --accent-2: #1d4ed8;
+    --green: #16a34a; --red: #dc2626; --amber: #d97706; --slate: #64748b;
+    --bg: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --muted: #64748b;
+    --radius: 10px; --shadow: 0 1px 3px rgba(15,23,42,.08), 0 1px 2px rgba(15,23,42,.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+    background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+  button { font-family: inherit; cursor: pointer; }
+  input, select, textarea { font-family: inherit; font-size: 14px; }
+  a { color: var(--accent); text-decoration: none; }
+
+  /* ----- Login ----- */
+  #loginView { min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 100%); }
+  .login-card { background: #fff; padding: 40px; border-radius: 14px; width: 360px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.3); }
+  .login-card h1 { font-size: 22px; color: var(--navy); margin-bottom: 4px; }
+  .login-card .sub { color: var(--muted); margin-bottom: 24px; font-size: 13px; }
+  .login-card label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+  .login-card input { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 8px; }
+  .login-card button { width: 100%; margin-top: 20px; padding: 12px; background: var(--accent);
+    color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; }
+  .login-card button:hover { background: var(--accent-2); }
+  .login-hint { margin-top: 16px; font-size: 12px; color: var(--muted); text-align: center; }
+
+  /* ----- App layout ----- */
+  #appView { display: none; min-height: 100vh; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: 230px; background: var(--navy); color: #cbd5e1; flex-shrink: 0;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  .brand { padding: 20px 22px; font-size: 18px; font-weight: 700; color: #fff;
+    border-bottom: 1px solid rgba(255,255,255,.1); }
+  .brand small { display: block; font-size: 11px; font-weight: 400; color: #94a3b8; margin-top: 2px; }
+  .nav { padding: 12px 0; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 11px 22px; color: #cbd5e1;
+    cursor: pointer; font-size: 14px; border-left: 3px solid transparent; }
+  .nav-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+  .nav-item.active { background: rgba(37,99,235,.18); color: #fff; border-left-color: var(--accent); font-weight: 600; }
+  .nav-item .ico { width: 18px; text-align: center; }
+
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .topbar { background: #fff; border-bottom: 1px solid var(--border); padding: 12px 24px;
+    display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
+  .topbar .title { font-size: 18px; font-weight: 700; }
+  .topbar .right { display: flex; align-items: center; gap: 16px; }
+  .topbar .user { text-align: right; font-size: 13px; }
+  .topbar .user b { display: block; }
+  .topbar .user span { color: var(--muted); font-size: 12px; }
+  .topbar select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  .content { padding: 24px; flex: 1; }
+
+  /* ----- Cards / KPI ----- */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+  .kpi .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+  .kpi .value { font-size: 22px; font-weight: 700; margin-top: 6px; }
+  .kpi .value.red { color: var(--red); } .kpi .value.green { color: var(--green); } .kpi .value.amber { color: var(--amber); }
+  .kpi .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); margin-bottom: 20px; }
+  .panel-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex;
+    align-items: center; justify-content: space-between; }
+  .panel-head h3 { font-size: 15px; }
+  .panel-body { padding: 18px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } .sidebar { width: 64px; } .brand small, .nav-item span:not(.ico) { display: none; } }
+
+  /* ----- Filters bar ----- */
+  .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 18px;
+    background: #fff; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); }
+  .filters .fld { display: flex; flex-direction: column; gap: 3px; }
+  .filters label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+  .filters input, .filters select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; min-width: 130px; }
+
+  /* ----- Buttons ----- */
+  .btn { padding: 8px 14px; border: 1px solid var(--border); background: #fff; border-radius: 8px; font-weight: 600; font-size: 13px; }
+  .btn:hover { background: #f8fafc; }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { background: var(--accent-2); }
+  .btn-danger { background: var(--red); color: #fff; border-color: var(--red); }
+  .btn-sm { padding: 5px 9px; font-size: 12px; }
+  .btn-ghost { border-color: transparent; background: transparent; color: var(--accent); }
+
+  /* ----- Tables ----- */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { text-align: left; padding: 10px 12px; background: #f8fafc; color: var(--muted);
+    font-size: 11px; text-transform: uppercase; letter-spacing: .03em; border-bottom: 2px solid var(--border); cursor: pointer; white-space: nowrap; }
+  tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  tbody tr:hover { background: #f8fafc; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .table-wrap { overflow-x: auto; }
+
+  /* ----- Badges ----- */
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .badge.open { background: #fef3c7; color: #92400e; }
+  .badge.partial { background: #dbeafe; color: #1e40af; }
+  .badge.paid { background: #dcfce7; color: #166534; }
+  .badge.overpaid { background: #e0e7ff; color: #3730a3; }
+  .badge.cancelled { background: #fee2e2; color: #991b1b; }
+  .badge.overdue { background: #fee2e2; color: #991b1b; }
+  .badge.gray { background: #f1f5f9; color: #475569; }
+  .badge.error { background: #fee2e2; color: #991b1b; }
+  .badge.warning { background: #fef3c7; color: #92400e; }
+  .badge.valid { background: #dcfce7; color: #166534; }
+
+  /* ----- Modal ----- */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.5); display: none;
+    align-items: flex-start; justify-content: center; z-index: 100; padding: 40px 16px; overflow-y: auto; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: #fff; border-radius: 12px; width: 100%; max-width: 640px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+  .modal.wide { max-width: 1100px; }
+  .modal-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .modal-head h3 { font-size: 16px; }
+  .modal-head .x { background: none; border: none; font-size: 22px; color: var(--muted); }
+  .modal-body { padding: 20px; max-height: 70vh; overflow-y: auto; }
+  .modal-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-grid .full { grid-column: 1 / -1; }
+  .form-grid label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #334155; }
+  .form-grid input, .form-grid select, .form-grid textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px; }
+
+  /* ----- Toast ----- */
+  #toasts { position: fixed; top: 18px; right: 18px; z-index: 200; display: flex; flex-direction: column; gap: 10px; }
+  .toast { padding: 12px 16px; border-radius: 9px; color: #fff; font-weight: 600; font-size: 13px;
+    box-shadow: 0 6px 16px rgba(0,0,0,.2); min-width: 240px; animation: slideIn .2s; }
+  .toast.success { background: var(--green); } .toast.error { background: var(--red); } .toast.info { background: var(--accent); }
+  @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  /* ----- Misc ----- */
+  .empty { text-align: center; padding: 40px; color: var(--muted); }
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.4);
+    border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; }
+  .spinner.dark { border-color: rgba(37,99,235,.3); border-top-color: var(--accent); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-overlay { text-align: center; padding: 50px; color: var(--muted); }
+  .chart-box { position: relative; height: 280px; }
+  .small-chart { height: 220px; }
+  .row-actions { display: flex; gap: 6px; }
+  .stat-line { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px dashed var(--border); }
+  .stat-line:last-child { border-bottom: none; }
+  .stat-line b { font-variant-numeric: tabular-nums; }
+  .tag-firma { font-size: 11px; padding: 1px 7px; border-radius: 6px; background: #eef2ff; color: #3730a3; font-weight: 700; }
+  .pill-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .pill-tabs .pill { padding: 7px 14px; border: 1px solid var(--border); border-radius: 999px; background: #fff; font-size: 13px; font-weight: 600; }
+  .pill-tabs .pill.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .help { font-size: 12px; color: var(--muted); margin: 4px 0 12px; }
+  .req::after { content: " *"; color: var(--red); }
+  .hidden { display: none !important; }
+
+  /* ----- Dopune ----- */
+  .login-error { background: #fef2f2; color: var(--red); border: 1px solid #fecaca;
+    padding: 9px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 8px; }
+  .sidebar-foot { padding: 14px 18px; border-top: 1px solid rgba(255,255,255,.1); }
+  .sidebar-foot .btn-ghost { width: 100%; color: #cbd5e1; border-color: rgba(255,255,255,.18); background: transparent; }
+  .sidebar-foot .btn-ghost:hover { background: rgba(255,255,255,.08); color: #fff; }
+  .loading-block { text-align: center; padding: 50px; color: var(--muted); }
+  .btn-lg { padding: 12px 20px; font-size: 15px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 16px; }
+  .filters .fld { display: flex; flex-direction: column; gap: 3px; }
+  .filters label { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .filters input, .filters select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; min-width: 130px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.data th { text-align: left; padding: 9px 10px; border-bottom: 2px solid var(--border);
+    color: var(--muted); font-weight: 600; white-space: nowrap; background: #f8fafc; position: sticky; top: 0; }
+  table.data td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  table.data tr:hover td { background: #f8fafc; }
+  table.data th.num, table.data td.num { text-align: right; }
+  .link { color: var(--accent); cursor: pointer; font-weight: 600; }
+  .link:hover { text-decoration: underline; }
+  .muted { color: var(--muted); }
+  .right-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 14px; flex-wrap: wrap; }
+  .mb0 { margin-bottom: 0 !important; }
+  .mt12 { margin-top: 12px; }
+  .totals-row td { font-weight: 700; border-top: 2px solid var(--border); background: #f8fafc; }
+  .sel-row { cursor: pointer; }
+  .sel-row.on td { background: #eff6ff; }
+  .kv { display: grid; grid-template-columns: 150px 1fr; gap: 4px 12px; font-size: 13px; }
+  .kv b { color: var(--muted); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- =====================================================================
+     PODEŠAVANJE: nalepite URL vašeg Apps Script Web App-a između navodnika.
+     (Dobićete ga u koraku "Deploy → New deployment → Web app".)
+     ===================================================================== -->
+<script>
+  window.BN_CONFIG = {
+    WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbyENCbibhUgqsL_t_wMRVPOBPNabdP3IHJ44TQkVlK8-iVKLCJxpYQ5nowSEaNLNUhT/exec'
+  };
+</script>
+
+  <!-- ===================== LOGIN ===================== -->
+  <div id="loginView">
+    <div class="login-card">
+      <h1>Balkan Naplata</h1>
+      <div class="sub">Praćenje naplate · Balkan avto &amp; Balkan transport</div>
+      <div id="loginError" class="login-error" style="display:none;"></div>
+      <label>Korisničko ime</label>
+      <input id="loginUser" type="text" autocomplete="username" placeholder="korisničko ime">
+      <label>Lozinka</label>
+      <input id="loginPass" type="password" autocomplete="current-password" placeholder="lozinka">
+      <button id="loginBtn">Prijava</button>
+      <div class="login-hint">Verzija 1.0 · MVP</div>
+    </div>
+  </div>
+
+  <!-- ===================== APP ===================== -->
+  <div id="appView">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">
+          Balkan Naplata
+          <small>Sistem za praćenje naplate</small>
+        </div>
+        <nav class="nav" id="nav">
+          <a class="nav-item active" data-route="dashboard"><span class="ico">📊</span> <span>Kontrolna tabla</span></a>
+          <a class="nav-item" data-route="clients"><span class="ico">🏢</span> <span>Klijenti</span></a>
+          <a class="nav-item" data-route="charges"><span class="ico">🧾</span> <span>Zaduženja</span></a>
+          <a class="nav-item" data-route="payments"><span class="ico">💸</span> <span>Naplate</span></a>
+          <a class="nav-item" data-route="import" data-perm="import"><span class="ico">📥</span> <span>Uvoz</span></a>
+          <a class="nav-item" data-route="reminders"><span class="ico">📞</span> <span>Opomene</span></a>
+          <a class="nav-item" data-route="reports"><span class="ico">📈</span> <span>Izveštaji</span></a>
+          <a class="nav-item" data-route="users" data-perm="admin"><span class="ico">👥</span> <span>Korisnici</span></a>
+          <a class="nav-item" data-route="settings" data-perm="admin"><span class="ico">⚙️</span> <span>Podešavanja</span></a>
+          <a class="nav-item" data-route="audit" data-perm="audit"><span class="ico">🛡️</span> <span>Audit log</span></a>
+        </nav>
+        <div class="sidebar-foot">
+          <button id="logoutBtn" class="btn btn-ghost btn-sm">Odjava</button>
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <div class="title" id="pageTitle">Kontrolna tabla</div>
+          <div class="right">
+            <select id="globalCompany" title="Firma">
+              <option value="ALL">Sve firme</option>
+            </select>
+            <select id="globalPeriod" title="Period">
+              <option value="all">Svi datumi</option>
+              <option value="month">Tekući mesec</option>
+              <option value="quarter">Tekući kvartal</option>
+              <option value="year">Tekuća godina</option>
+            </select>
+            <div class="user">
+              <b id="userName">—</b>
+              <span id="userRole">—</span>
+            </div>
+          </div>
+        </header>
+
+        <div class="content" id="content">
+          <div class="loading-block"><span class="spinner dark"></span> Učitavanje…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL ===================== -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modal">
+      <div class="modal-head">
+        <h3 id="modalTitle">—</h3>
+        <button class="x" id="modalClose">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-foot" id="modalFoot"></div>
+    </div>
+  </div>
+
+  <!-- ===================== TOAST ===================== -->
+  <div id="toast" class="toast"></div>
+
+<script>
+/* ============================================================
+   BALKAN NAPLATA — frontend (vanilla JS)
+   Komunikacija sa backendom preko google.script.run
+   ============================================================ */
+(function () {
+  'use strict';
+
+  /* ---------------------- Stanje ---------------------- */
+  var STATE = {
+    token: null,
+    user: null,
+    companies: [],
+    canSeeAll: false,
+    route: 'dashboard',
+    charts: {},          // aktivni Chart.js instanci po ključu
+    cache: { clients: null },
+    clientPickIdx: null  // za import ručni izbor klijenta
+  };
+
+  var ROLE_LABEL = {
+    ADMIN: 'Administrator', FINANCE_MANAGER: 'Finansije',
+    COLLECTION_AGENT: 'Naplata', VIEWER: 'Pregled', AUDITOR: 'Revizor'
+  };
+
+  /* ---------------------- google.script.run wrapper ---------------------- */
+  function gcall(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    var url = (window.BN_CONFIG && window.BN_CONFIG.WEB_APP_URL) || '';
+    return new Promise(function (resolve, reject) {
+      if (!url || url.indexOf('PASTE_') === 0 || url.indexOf('PASTE_WEB_APP_URL') !== -1) {
+        reject(new Error('Web App URL nije podešen. Otvorite index.html i upišite WEB_APP_URL na vrhu fajla.'));
+        return;
+      }
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ fn: fn, args: args }),
+        redirect: 'follow'
+      }).then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(function (data) {
+        resolve(data);
+      }).catch(function (err) {
+        reject(new Error('Greška u komunikaciji sa serverom. Proverite Web App URL i internet. (' + (err && err.message ? err.message : err) + ')'));
+      });
+    });
+  }
+
+  // Pozivi koji traže autentifikaciju: token ide kao POSLEDNJI argument.
+  function api(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    args.push(STATE.token);
+    return gcall.apply(null, [fn].concat(args));
+  }
+
+  /* ---------------------- DOM helperi ---------------------- */
+  function $(sel, root) { return (root || document).querySelector(sel); }
+  function $all(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+  function el(id) { return document.getElementById(id); }
+
+  function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  /* ---------------------- Formatiranje ---------------------- */
+  function money(n, cur) {
+    n = Number(n || 0);
+    var s = n.toLocaleString('sr-RS', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return s + (cur ? ' ' + cur : ' RSD');
+  }
+  function eur(n) {
+    n = Number(n || 0);
+    return n.toLocaleString('sr-RS', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  }
+  function num(n) {
+    return Number(n || 0).toLocaleString('sr-RS', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function dateSr(v) {
+    if (!v) return '';
+    var d = (v instanceof Date) ? v : new Date(v);
+    if (isNaN(d.getTime())) return String(v);
+    var dd = ('0' + d.getDate()).slice(-2), mm = ('0' + (d.getMonth() + 1)).slice(-2);
+    return dd + '.' + mm + '.' + d.getFullYear() + '.';
+  }
+  function todayIso() {
+    var d = new Date();
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  }
+
+  /* ---------------------- Toast / Loading ---------------------- */
+  var toastTimer = null;
+  function toast(msg, type) {
+    var t = el('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + (type || 'success');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.className = 'toast'; }, 3600);
+  }
+  function loading(html) {
+    el('content').innerHTML = '<div class="loading-block"><span class="spinner dark"></span> ' +
+      (html || 'Učitavanje…') + '</div>';
+  }
+  function errBox(msg) {
+    el('content').innerHTML = '<div class="panel"><div class="panel-body">' +
+      '<div class="login-error" style="margin:0">' + esc(msg) + '</div></div></div>';
+  }
+
+  /* ---------------------- Dozvole ---------------------- */
+  function can(action) {
+    var u = STATE.user; if (!u) return false;
+    var r = u.role;
+    if (r === 'ADMIN') return true;
+    var m = {
+      FINANCE_MANAGER: ['view','charge.write','charge.cancel','import','payment.write','payment.cancel','reminder.write','reports','export','client.write'],
+      COLLECTION_AGENT: ['view','reminder.write','reports','client.view'],
+      VIEWER: ['view','export'],
+      AUDITOR: ['view','audit.view']
+    };
+    return (m[r] || []).indexOf(action) !== -1;
+  }
+
+  /* eksponuj interno za sledeće delove */
+  window.__BN = {
+    STATE: STATE, gcall: gcall, api: api, $: $, $all: $all, el: el, esc: esc,
+    money: money, eur: eur, num: num, dateSr: dateSr, todayIso: todayIso,
+    toast: toast, loading: loading, errBox: errBox, can: can, ROLE_LABEL: ROLE_LABEL
+  };
+
+  /* ---------------------- Modal ---------------------- */
+  function openModal(title, bodyHtml, footHtml, wide) {
+    el('modalTitle').textContent = title;
+    el('modalBody').innerHTML = bodyHtml;
+    el('modalFoot').innerHTML = footHtml || '';
+    el('modal').className = 'modal' + (wide ? ' wide' : '');
+    el('modalOverlay').classList.add('show');
+  }
+  function closeModal() {
+    el('modalOverlay').classList.remove('show');
+    el('modalBody').innerHTML = '';
+    el('modalFoot').innerHTML = '';
+  }
+  function confirmModal(title, msg, onYes, yesLabel, danger) {
+    openModal(title, '<p style="margin:4px 0 8px">' + esc(msg) + '</p>',
+      '<button class="btn" id="cfgNo">Otkaži</button>' +
+      '<button class="btn ' + (danger ? 'btn-danger' : 'btn-primary') + '" id="cfgYes">' +
+      esc(yesLabel || 'Potvrdi') + '</button>');
+    el('cfgNo').onclick = closeModal;
+    el('cfgYes').onclick = function () { onYes(); };
+  }
+
+  /* ---------------------- Autentifikacija ---------------------- */
+  function doLogin() {
+    var u = el('loginUser').value.trim(), p = el('loginPass').value;
+    var btn = el('loginBtn'); var errEl = el('loginError');
+    errEl.style.display = 'none';
+    if (!u || !p) { errEl.textContent = 'Unesite korisničko ime i lozinku.'; errEl.style.display = 'block'; return; }
+    btn.disabled = true; btn.textContent = 'Prijava…';
+    gcall('login', u, p).then(function (res) {
+      btn.disabled = false; btn.textContent = 'Prijava';
+      if (!res || !res.ok) {
+        errEl.textContent = (res && res.error) || 'Greška pri prijavi.';
+        errEl.style.display = 'block';
+        return;
+      }
+      STATE.token = res.token;
+      STATE.user = res.user;
+      bootApp();
+    }).catch(function (e) {
+      btn.disabled = false; btn.textContent = 'Prijava';
+      errEl.textContent = 'Greška: ' + (e && e.message ? e.message : e);
+      errEl.style.display = 'block';
+    });
+  }
+
+  function doLogout() {
+    api('logout').catch(function () {}).then(function () {
+      STATE.token = null; STATE.user = null;
+      el('appView').style.display = 'none';
+      el('loginView').style.display = 'flex';
+      el('loginPass').value = '';
+    });
+  }
+
+  function bootApp() {
+    el('loginView').style.display = 'none';
+    el('appView').style.display = 'block';
+    el('userName').textContent = STATE.user.fullName || STATE.user.username;
+    el('userRole').textContent = (ROLE_LABEL[STATE.user.role] || STATE.user.role) +
+      ' · ' + (STATE.user.companyAccess === 'ALL' ? 'Sve firme' : STATE.user.companyAccess);
+
+    applyNavPermissions();
+
+    // Učitaj firme za globalni selektor
+    api('getCompanies').then(function (res) {
+      if (res && res.ok) {
+        STATE.companies = res.companies || [];
+        STATE.canSeeAll = !!res.canSeeAll;
+        var sel = el('globalCompany');
+        var opts = '';
+        if (STATE.canSeeAll) opts += '<option value="ALL">Sve firme</option>';
+        STATE.companies.forEach(function (c) {
+          opts += '<option value="' + esc(c.companyId) + '">' + esc(c.companyName) + '</option>';
+        });
+        sel.innerHTML = opts;
+        if (!STATE.canSeeAll && STATE.companies[0]) sel.value = STATE.companies[0].companyId;
+      }
+      navigate('dashboard');
+    }).catch(function (e) { errBox('Greška pri učitavanju firmi: ' + (e.message || e)); });
+  }
+
+  function applyNavPermissions() {
+    $all('#nav .nav-item').forEach(function (item) {
+      var perm = item.getAttribute('data-perm');
+      var show = true;
+      if (perm === 'import') show = can('import');
+      else if (perm === 'admin') show = STATE.user.role === 'ADMIN';
+      else if (perm === 'audit') show = (STATE.user.role === 'ADMIN' || STATE.user.role === 'AUDITOR');
+      item.style.display = show ? '' : 'none';
+    });
+  }
+
+  /* ---------------------- Globalni filteri ---------------------- */
+  function companyFilter() {
+    var v = el('globalCompany').value;
+    return v || 'ALL';
+  }
+  function periodFilter() {
+    var v = el('globalPeriod').value;
+    var now = new Date(), from = null;
+    if (v === 'month') from = new Date(now.getFullYear(), now.getMonth(), 1);
+    else if (v === 'quarter') from = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+    else if (v === 'year') from = new Date(now.getFullYear(), 0, 1);
+    if (!from) return {};
+    function iso(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+    return { dateFrom: iso(from), dateTo: iso(now) };
+  }
+  function baseFilters() {
+    var f = periodFilter();
+    f.companyId = companyFilter();
+    return f;
+  }
+
+  /* ---------------------- Ruter ---------------------- */
+  var ROUTES = {};   // popunjavaju ga sledeći delovi
+  var TITLES = {
+    dashboard: 'Kontrolna tabla', clients: 'Klijenti', charges: 'Zaduženja',
+    payments: 'Naplate', import: 'Uvoz podataka', reminders: 'Opomene',
+    reports: 'Izveštaji', users: 'Korisnici', settings: 'Podešavanja', audit: 'Audit log'
+  };
+
+  function navigate(route) {
+    STATE.route = route;
+    $all('#nav .nav-item').forEach(function (i) {
+      i.classList.toggle('active', i.getAttribute('data-route') === route);
+    });
+    el('pageTitle').textContent = TITLES[route] || route;
+    destroyCharts();
+    var fn = ROUTES[route];
+    if (typeof fn === 'function') fn();
+    else errBox('Modul nije dostupan.');
+  }
+
+  function destroyCharts() {
+    Object.keys(STATE.charts).forEach(function (k) {
+      try { STATE.charts[k].destroy(); } catch (e) {}
+      delete STATE.charts[k];
+    });
+  }
+
+  /* ============================================================
+     KONTROLNA TABLA
+     ============================================================ */
+  ROUTES.dashboard = function () {
+    loading('Učitavanje kontrolne table…');
+    api('getDashboardData', baseFilters()).then(function (res) {
+      if (!res || !res.ok) return errBox((res && res.error) || 'Greška.');
+      renderDashboard(res);
+    }).catch(function (e) { errBox(e.message || String(e)); });
+  };
+
+  function kpiCard(label, value, sub, red) {
+    return '<div class="kpi"><div class="label">' + esc(label) + '</div>' +
+      '<div class="value' + (red ? ' red' : '') + '">' + value + '</div>' +
+      (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div>';
+  }
+
+  function renderDashboard(d) {
+    var k = d.kpi;
+    var html = '';
+    html += '<div class="kpi-grid">';
+    html += kpiCard('Ukupno otvoreno', money(k.openRsd), k.openCount + ' stavki');
+    html += kpiCard('Dospelo (kašnjenje)', money(k.overdueRsd), 'Prosek ' + k.avgDaysOverdue + ' dana', k.overdueRsd > 0);
+    html += kpiCard('Nedospelo', money(k.notDueRsd), null);
+    html += kpiCard('Stopa naplate (period)', k.collectionRatePct + '%', 'Naplaćeno / zaduženo');
+    html += kpiCard('Klijenata sa dugom', String(k.clientsWithDebt), k.clientsOverLimit + ' preko limita', k.clientsOverLimit > 0);
+    html += kpiCard('EUR otvoreno', eur(k.eurOpenOriginal), '≈ ' + money(k.eurOpenRsd));
+    html += '</div>';
+
+    // grafikoni
+    html += '<div class="grid-2" style="margin-top:18px">';
+    html += '<div class="panel"><div class="panel-head"><h3>Starost duga (aging)</h3></div>' +
+            '<div class="panel-body"><div class="chart-box"><canvas id="chAging"></canvas></div></div></div>';
+    html += '<div class="panel"><div class="panel-head"><h3>Zaduženja vs. naplate</h3></div>' +
+            '<div class="panel-body"><div class="chart-box"><canvas id="chTrend"></canvas></div></div></div>';
+    html += '</div>';
+
+    html += '<div class="grid-2" style="margin-top:18px">';
+    // top dužnici
+    html += '<div class="panel"><div class="panel-head"><h3>Top 10 dužnika</h3></div><div class="panel-body table-wrap">';
+    if (d.topDebtors.length) {
+      html += '<table class="data"><thead><tr><th>Klijent</th><th class="num">Otvoreno</th></tr></thead><tbody>';
+      d.topDebtors.forEach(function (t) {
+        html += '<tr><td><span class="link" data-client="' + esc(t.clientId) + '">' + esc(t.clientName) + '</span></td>' +
+                '<td class="num">' + money(t.openRsd) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+    } else html += '<div class="empty">Nema otvorenih dugovanja.</div>';
+    html += '</div></div>';
+
+    // najstarija dugovanja
+    html += '<div class="panel"><div class="panel-head"><h3>Najstarija dugovanja</h3></div><div class="panel-body table-wrap">';
+    if (d.oldest.length) {
+      html += '<table class="data"><thead><tr><th>Faktura</th><th>Klijent</th><th class="num">Dana</th><th class="num">Otvoreno</th></tr></thead><tbody>';
+      d.oldest.forEach(function (o) {
+        html += '<tr><td>' + esc(o.invoiceNumber || '—') + '</td><td>' + esc(o.clientName) + '</td>' +
+                '<td class="num"><span class="badge overdue">' + o.daysOverdue + '</span></td>' +
+                '<td class="num">' + money(o.openRsd) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+    } else html += '<div class="empty">Nema podataka.</div>';
+    html += '</div></div>';
+    html += '</div>';
+
+    // očekivane naplate (promise to pay)
+    if (d.promises && d.promises.length) {
+      html += '<div class="panel" style="margin-top:18px"><div class="panel-head"><h3>Najavljene uplate (obećanja)</h3></div>' +
+              '<div class="panel-body table-wrap"><table class="data"><thead><tr><th>Datum</th><th>Klijent</th><th class="num">Iznos</th></tr></thead><tbody>';
+      var cmap = {};
+      (STATE.cache.clients || []).forEach(function (c) { cmap[c.clientId] = c.clientName; });
+      d.promises.forEach(function (p) {
+        html += '<tr><td>' + dateSr(p.date) + '</td><td>' + esc(cmap[p.clientId] || p.clientId) + '</td>' +
+                '<td class="num">' + money(p.amountRsd) + '</td></tr>';
+      });
+      html += '</tbody></table></div></div>';
+    }
+
+    el('content').innerHTML = html;
+
+    // klik na dužnika -> kartica
+    $all('#content .link[data-client]').forEach(function (lnk) {
+      lnk.onclick = function () { openClientCard(lnk.getAttribute('data-client')); };
+    });
+
+    drawAgingChart(d.aging);
+    drawTrendChart(d.trend);
+  }
+
+  var AGING_ORDER = ['NEDOSPELO', '1-7', '8-15', '16-30', '31-60', '61-90', '90+'];
+  var AGING_COLORS = ['#16a34a', '#65a30d', '#ca8a04', '#d97706', '#ea580c', '#dc2626', '#991b1b'];
+
+  function drawAgingChart(aging) {
+    var ctx = el('chAging'); if (!ctx || typeof Chart === 'undefined') return;
+    STATE.charts.aging = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: AGING_ORDER,
+        datasets: [{ label: 'Otvoreno (RSD)', data: AGING_ORDER.map(function (b) { return aging[b] || 0; }),
+          backgroundColor: AGING_COLORS }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { y: { ticks: { callback: function (v) { return num(v); } } } } }
+    });
+  }
+
+  function drawTrendChart(trend) {
+    var ctx = el('chTrend'); if (!ctx || typeof Chart === 'undefined' || !trend) return;
+    STATE.charts.trend = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: (trend.labels || []).map(function (l) { return dateSr(l); }),
+        datasets: [
+          { label: 'Zaduženja', data: trend.charged || [], borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.1)', fill: true, tension: .3 },
+          { label: 'Naplate', data: trend.paid || [], borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.1)', fill: true, tension: .3 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        scales: { y: { ticks: { callback: function (v) { return num(v); } } } } }
+    });
+  }
+
+  /* ============================================================
+     KLIJENTI
+     ============================================================ */
+  ROUTES.clients = function () {
+    loading('Učitavanje klijenata…');
+    api('listClients', { search: '', status: '' }).then(function (res) {
+      if (!res || !res.ok) return errBox((res && res.error) || 'Greška.');
+      STATE.cache.clients = res.clients;
+      renderClients(res.clients);
+    }).catch(function (e) { errBox(e.message || String(e)); });
+  };
+
+  function renderClients(list) {
+    var html = '';
+    html += '<div class="filters">';
+    html += '<div class="fld"><label>Pretraga</label><input id="clSearch" placeholder="naziv, PIB, grad…"></div>';
+    html += '<div class="fld"><label>Status</label><select id="clStatus"><option value="">Svi</option>' +
+            '<option value="ACTIVE">Aktivan</option><option value="BLOCKED">Blokiran</option><option value="INACTIVE">Neaktivan</option></select></div>';
+    html += '<button class="btn" id="clFilterBtn">Filtriraj</button>';
+    if (can('client.write')) html += '<button class="btn btn-primary" id="clNewBtn" style="margin-left:auto">+ Novi klijent</button>';
+    html += '</div>';
+
+    html += '<div class="panel"><div class="panel-body table-wrap" id="clTableWrap"></div></div>';
+    el('content').innerHTML = html;
+
+    el('clFilterBtn').onclick = function () {
+      var s = el('clSearch').value, st = el('clStatus').value;
+      el('clTableWrap').innerHTML = '<div class="loading-block"><span class="spinner dark"></span></div>';
+      api('listClients', { search: s, status: st }).then(function (r) {
+        if (r && r.ok) { STATE.cache.clients = r.clients; clientsTable(r.clients); }
+      });
+    };
+    el('clSearch').onkeydown = function (e) { if (e.key === 'Enter') el('clFilterBtn').click(); };
+    if (el('clNewBtn')) el('clNewBtn').onclick = function () { clientForm(null); };
+
+    clientsTable(list);
+  }
+
+  function clientsTable(list) {
+    var w = el('clTableWrap');
+    if (!list.length) { w.innerHTML = '<div class="empty">Nema klijenata.</div>'; return; }
+    var html = '<table class="data"><thead><tr><th>Naziv</th><th>PIB</th><th>Grad</th><th>Kontakt</th>' +
+      '<th class="num">Otvoreno</th><th>Status</th><th></th></tr></thead><tbody>';
+    list.forEach(function (c) {
+      var stBadge = c.status === 'ACTIVE' ? '<span class="badge valid">Aktivan</span>' :
+        (c.status === 'BLOCKED' ? '<span class="badge error">Blokiran</span>' : '<span class="badge gray">Neaktivan</span>');
+      html += '<tr><td><span class="link" data-card="' + esc(c.clientId) + '">' + esc(c.clientName) + '</span>' +
+        (c.overLimit ? ' <span class="badge overdue" title="Preko kreditnog limita">limit</span>' : '') + '</td>' +
+        '<td>' + esc(c.pib || '—') + '</td><td>' + esc(c.city || '—') + '</td>' +
+        '<td>' + esc(c.contactPerson || c.phone || c.email || '—') + '</td>' +
+        '<td class="num">' + money(c.openAmountRsd) + '</td><td>' + stBadge + '</td>' +
+        '<td class="num"><div class="row-actions" style="justify-content:flex-end">' +
+        '<button class="btn btn-sm" data-card="' + esc(c.clientId) + '">Kartica</button>' +
+        (can('client.write') ? '<button class="btn btn-sm" data-edit="' + esc(c.clientId) + '">Izmeni</button>' : '') +
+        '</div></td></tr>';
+    });
+    html += '</tbody></table>';
+    w.innerHTML = html;
+    $all('[data-card]', w).forEach(function (b) { b.onclick = function () { openClientCard(b.getAttribute('data-card')); }; });
+    $all('[data-edit]', w).forEach(function (b) { b.onclick = function () {
+      var c = (STATE.cache.clients || []).filter(function (x) { return x.clientId === b.getAttribute('data-edit'); })[0];
+      clientForm(c);
+    }; });
+  }
+
+  function clientForm(c) {
+    c = c || {};
+    var isEdit = !!c.clientId;
+    var body = '<div class="form-grid">' +
+      '<div class="full"><label class="req">Naziv</label><input id="cfName" value="' + esc(c.clientName || '') + '"></div>' +
+      '<div><label>PIB</label><input id="cfPib" value="' + esc(c.pib || '') + '"></div>' +
+      '<div><label>Matični broj</label><input id="cfMb" value="' + esc(c.mb || '') + '"></div>' +
+      '<div><label>Grad</label><input id="cfCity" value="' + esc(c.city || '') + '"></div>' +
+      '<div><label>Država</label><input id="cfCountry" value="' + esc(c.country || 'Srbija') + '"></div>' +
+      '<div class="full"><label>Adresa</label><input id="cfAddr" value="' + esc(c.address || '') + '"></div>' +
+      '<div><label>Kontakt osoba</label><input id="cfContact" value="' + esc(c.contactPerson || '') + '"></div>' +
+      '<div><label>Telefon</label><input id="cfPhone" value="' + esc(c.phone || '') + '"></div>' +
+      '<div><label>E-pošta</label><input id="cfEmail" value="' + esc(c.email || '') + '"></div>' +
+      '<div><label>Rok plaćanja (dana)</label><input id="cfTerms" type="number" value="' + esc(c.paymentTermsDays || 30) + '"></div>' +
+      '<div><label>Kreditni limit (RSD)</label><input id="cfLimit" type="number" step="0.01" value="' + esc(c.creditLimitRsd || 0) + '"></div>' +
+      '<div><label>Status</label><select id="cfStatus">' +
+        ['ACTIVE','BLOCKED','INACTIVE'].map(function (s) {
+          var lbl = { ACTIVE: 'Aktivan', BLOCKED: 'Blokiran', INACTIVE: 'Neaktivan' }[s];
+          return '<option value="' + s + '"' + ((c.status || 'ACTIVE') === s ? ' selected' : '') + '>' + lbl + '</option>';
+        }).join('') + '</select></div>' +
+      '<div class="full"><label>Napomena</label><textarea id="cfNotes" rows="2">' + esc(c.notes || '') + '</textarea></div>' +
+      '</div>';
+    openModal(isEdit ? 'Izmena klijenta' : 'Novi klijent', body,
+      '<button class="btn" id="cfCancel">Otkaži</button><button class="btn btn-primary" id="cfSave">Sačuvaj</button>');
+    el('cfCancel').onclick = closeModal;
+    el('cfSave').onclick = function () {
+      var data = {
+        clientId: c.clientId || null, clientName: el('cfName').value.trim(),
+        pib: el('cfPib').value.trim(), mb: el('cfMb').value.trim(), city: el('cfCity').value.trim(),
+        country: el('cfCountry').value.trim(), address: el('cfAddr').value.trim(),
+        contactPerson: el('cfContact').value.trim(), phone: el('cfPhone').value.trim(),
+        email: el('cfEmail').value.trim(), paymentTermsDays: el('cfTerms').value,
+        creditLimitRsd: el('cfLimit').value, status: el('cfStatus').value, notes: el('cfNotes').value.trim()
+      };
+      if (!data.clientName) { toast('Naziv klijenta je obavezan.', 'error'); return; }
+      el('cfSave').disabled = true;
+      api('saveClient', data).then(function (r) {
+        el('cfSave').disabled = false;
+        if (r && r.ok) { toast('Klijent sačuvan.'); closeModal(); ROUTES.clients(); }
+        else toast((r && r.error) || 'Greška.', 'error');
+      }).catch(function (e) { el('cfSave').disabled = false; toast(e.message || String(e), 'error'); });
+    };
+  }
+
+  /* ---------------------- Kartica klijenta ---------------------- */
+  function openClientCard(clientId) {
+    openModal('Kartica klijenta', '<div class="loading-block"><span class="spinner dark"></span> Učitavanje…</div>', '', true);
+    api('getClientCard', clientId, { companyId: companyFilter() }).then(function (res) {
+      if (!res || !res.ok) { el('modalBody').innerHTML = '<div class="login-error">' + esc((res && res.error) || 'Greška.') + '</div>'; return; }
+      renderClientCard(res);
+    }).catch(function (e) { el('modalBody').innerHTML = '<div class="login-error">' + esc(e.message || String(e)) + '</div>'; });
+  }
+
+  function renderClientCard(d) {
+    var c = d.client, s = d.summary;
+    el('modalTitle').textContent = 'Kartica: ' + c.clientName;
+    var html = '';
+    html += '<div class="grid-3" style="margin-bottom:14px">';
+    html += '<div class="kpi"><div class="label">Ukupno otvoreno</div><div class="value' + (s.totalOpenRsd > 0 ? '' : '') + '">' + money(s.totalOpenRsd) + '</div></div>';
+    html += '<div class="kpi"><div class="label">Dospelo</div><div class="value' + (s.totalOverdueRsd > 0 ? ' red' : '') + '">' + money(s.totalOverdueRsd) + '</div></div>';
+    html += '<div class="kpi"><div class="label">Kreditni limit</div><div class="value">' + money(s.creditLimitRsd) +
+            (s.overLimit ? ' <span class="badge overdue">preko</span>' : '') + '</div></div>';
+    html += '</div>';
+
+    html += '<div class="kv" style="margin-bottom:14px">';
+    if (c.pib) html += '<b>PIB</b><span>' + esc(c.pib) + '</span>';
+    if (c.mb) html += '<b>Matični broj</b><span>' + esc(c.mb) + '</span>';
+    if (c.city) html += '<b>Grad</b><span>' + esc(c.city) + '</span>';
+    if (c.contactPerson) html += '<b>Kontakt</b><span>' + esc(c.contactPerson) + '</span>';
+    if (c.phone) html += '<b>Telefon</b><span>' + esc(c.phone) + '</span>';
+    if (c.email) html += '<b>E-pošta</b><span>' + esc(c.email) + '</span>';
+    html += '<b>Rok plaćanja</b><span>' + esc(c.paymentTermsDays || 30) + ' dana</span>';
+    html += '</div>';
+
+    html += '<div class="right-actions">';
+    if (can('payment.write')) html += '<button class="btn btn-primary btn-sm" id="ccPay">+ Naplata</button>';
+    if (can('reminder.write')) html += '<button class="btn btn-sm" id="ccRem">+ Opomena</button>';
+    html += '<button class="btn btn-sm" id="ccStatement">Izvod (CSV)</button>';
+    html += '</div>';
+
+    html += '<div class="pill-tabs" id="ccTabs">' +
+      '<div class="pill active" data-tab="charges">Zaduženja (' + d.charges.length + ')</div>' +
+      '<div class="pill" data-tab="payments">Naplate (' + d.payments.length + ')</div>' +
+      '<div class="pill" data-tab="reminders">Opomene (' + d.reminders.length + ')</div></div>';
+    html += '<div id="ccTabBody" class="table-wrap"></div>';
+
+    el('modalBody').innerHTML = html;
+    el('modalFoot').innerHTML = '<button class="btn" onclick="(function(){})()" id="ccClose">Zatvori</button>';
+    el('ccClose').onclick = closeModal;
+
+    var tabs = {
+      charges: function () { return chargesMini(d.charges); },
+      payments: function () { return paymentsMini(d.payments); },
+      reminders: function () { return remindersMini(d.reminders); }
+    };
+    function showTab(t) {
+      $all('#ccTabs .pill').forEach(function (p) { p.classList.toggle('active', p.getAttribute('data-tab') === t); });
+      el('ccTabBody').innerHTML = tabs[t]();
+    }
+    $all('#ccTabs .pill').forEach(function (p) { p.onclick = function () { showTab(p.getAttribute('data-tab')); }; });
+    showTab('charges');
+
+    if (el('ccPay')) el('ccPay').onclick = function () { paymentForm({ clientId: c.clientId, clientName: c.clientName }); };
+    if (el('ccRem')) el('ccRem').onclick = function () { reminderForm({ clientId: c.clientId, clientName: c.clientName }); };
+    el('ccStatement').onclick = function () { exportStatementCsv(c.clientId, c.clientName); };
+  }
+
+  function chargesMini(rows) {
+    if (!rows.length) return '<div class="empty">Nema zaduženja.</div>';
+    var h = '<table class="data"><thead><tr><th>Datum</th><th>Dokument</th><th>Tip</th><th class="num">Iznos</th><th class="num">Otvoreno</th><th>Status</th></tr></thead><tbody>';
+    rows.forEach(function (c) {
+      h += '<tr><td>' + dateSr(c.issueDate) + '</td><td>' + esc(c.invoiceNumber || c.documentNumber || '—') + '</td>' +
+        '<td>' + chargeTypeLabel(c.chargeType) + '</td><td class="num">' + money(c.amountRsd) + '</td>' +
+        '<td class="num">' + money(c.openAmountRsd) + '</td><td>' + payStatusBadge(c.paymentStatus, c.status) + '</td></tr>';
+    });
+    return h + '</tbody></table>';
+  }
+  function paymentsMini(rows) {
+    if (!rows.length) return '<div class="empty">Nema naplata.</div>';
+    var h = '<table class="data"><thead><tr><th>Datum</th><th>Način</th><th class="num">Iznos</th><th>Napomena</th></tr></thead><tbody>';
+    rows.forEach(function (p) {
+      h += '<tr><td>' + dateSr(p.paymentDate) + '</td><td>' + esc(payMethodLabel(p.paymentMethod)) + '</td>' +
+        '<td class="num">' + money(p.amountRsd) + (p.cancelledAt ? ' <span class="badge cancelled">storno</span>' : '') + '</td>' +
+        '<td>' + esc(p.note || '') + '</td></tr>';
+    });
+    return h + '</tbody></table>';
+  }
+  function remindersMini(rows) {
+    if (!rows.length) return '<div class="empty">Nema opomena.</div>';
+    var h = '<table class="data"><thead><tr><th>Datum</th><th>Nivo</th><th>Kanal</th><th>Rezultat</th><th>Napomena</th></tr></thead><tbody>';
+    rows.forEach(function (r) {
+      h += '<tr><td>' + dateSr(r.reminderDate) + '</td><td>' + esc(reminderLevelLabel(r.reminderLevel)) + '</td>' +
+        '<td>' + esc(r.channel || '') + '</td><td>' + esc(reminderResultLabel(r.result)) + '</td>' +
+        '<td>' + esc(r.note || '') + '</td></tr>';
+    });
+    return h + '</tbody></table>';
+  }
+
+  /* ============================================================
+     LABELE / BADGE-EVI / CSV
+     ============================================================ */
+  function chargeTypeLabel(t) {
+    return ({ DINARSKA_FAKTURA: 'Dinarska faktura', EUR_FAKTURA: 'EUR faktura', GOTOVINSKO_ZADUZENJE: 'Gotovinsko' })[t] || t || '';
+  }
+  function payMethodLabel(m) {
+    return ({ BANK: 'Banka', CASH: 'Gotovina', CARD: 'Kartica', OFFSET: 'Kompenzacija', OTHER: 'Ostalo' })[m] || m || '';
+  }
+  function reminderLevelLabel(l) {
+    return ({ INFO: 'Info', PRVA_OPOMENA: '1. opomena', DRUGA_OPOMENA: '2. opomena',
+      PRED_UTUZENJE: 'Pred utuženje', DOGOVOR: 'Dogovor', RUCNA_BELESKA: 'Beleška' })[l] || l || '';
+  }
+  function reminderResultLabel(r) {
+    return ({ NO_RESPONSE: 'Bez odgovora', PROMISED_PAYMENT: 'Obećana uplata', DISPUTE: 'Sporno',
+      PAID_AFTER_REMINDER: 'Plaćeno', REFUSED: 'Odbijeno', WRONG_CONTACT: 'Pogrešan kontakt',
+      RESCHEDULED: 'Odloženo', OTHER: 'Ostalo' })[r] || r || '';
+  }
+  function channelLabel(c) {
+    return ({ PHONE: 'Telefon', EMAIL: 'E-pošta', SMS: 'SMS', VIBER: 'Viber', WHATSAPP: 'WhatsApp',
+      LETTER: 'Pismo', IN_PERSON: 'Lično', OTHER: 'Ostalo' })[c] || c || '';
+  }
+  function payStatusBadge(ps, status) {
+    if (status === 'CANCELLED') return '<span class="badge cancelled">Stornirano</span>';
+    if (status === 'WRITTEN_OFF') return '<span class="badge gray">Otpisano</span>';
+    return ({ OPEN: '<span class="badge open">Otvoreno</span>',
+      PARTIAL: '<span class="badge partial">Delimično</span>',
+      PAID: '<span class="badge paid">Plaćeno</span>',
+      OVERPAID: '<span class="badge overpaid">Preplata</span>' })[ps] || '<span class="badge gray">' + esc(ps || '') + '</span>';
+  }
+  function companyName(id) {
+    var c = (STATE.companies || []).filter(function (x) { return x.companyId === id; })[0];
+    return c ? (c.shortName || c.companyName) : id;
+  }
+
+  /* ---------------------- CSV izvoz ---------------------- */
+  function downloadCsv(filename, rows) {
+    var bom = '\uFEFF';
+    var csv = rows.map(function (r) {
+      return r.map(function (cell) {
+        var s = (cell === null || cell === undefined) ? '' : String(cell);
+        if (/[";\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+        return s;
+      }).join(';');
+    }).join('\r\n');
+    var blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+
+  function exportStatementCsv(clientId, clientName) {
+    api('getClientStatementReport', clientId, { companyId: companyFilter() }).then(function (res) {
+      if (!res || !res.ok) { toast((res && res.error) || 'Greška.', 'error'); return; }
+      var rows = [['Datum', 'Tip', 'Dokument', 'Opis', 'Duguje', 'Potražuje', 'Saldo']];
+      res.report.entries.forEach(function (e) {
+        rows.push([dateSr(e.date), e.type || '', e.doc || '', e.note || '', num(e.debit), num(e.credit), num(e.balance)]);
+      });
+      downloadCsv('izvod_' + clientName.replace(/[^\w]+/g, '_') + '.csv', rows);
+      toast('Izvod izvezen.');
+    }).catch(function (e) { toast(e.message || String(e), 'error'); });
+  }
+
+  /* ============================================================
+     ZADUŽENJA
+     ============================================================ */
+  function ensureClients() {
+    if (STATE.cache.clients) return Promise.resolve(STATE.cache.clients);
+    return api('listClients', { search: '', status: '' }).then(function (r) {
+      STATE.cache.clients = (r && r.ok) ? r.clients : [];
+      return STATE.cache.clients;
+    });
+  }
+
+  function companyOptions(selected, includeAll) {
+    var opts = '';
+    if (includeAll) opts += '<option value="ALL">Sve firme</option>';
+    (STATE.companies || []).forEach(function (c) {
+      opts += '<option value="' + esc(c.companyId) + '"' + (selected === c.companyId ? ' selected' : '') + '>' + esc(c.companyName) + '</option>';
+    });
+    return opts;
+  }
+  function clientOptions(selected) {
+    var opts = '<option value="">— izaberite klijenta —</option>';
+    (STATE.cache.clients || []).slice().sort(function (a, b) { return a.clientName.localeCompare(b.clientName, 'sr'); })
+      .forEach(function (c) {
+        opts += '<option value="' + esc(c.clientId) + '"' + (selected === c.clientId ? ' selected' : '') + '>' + esc(c.clientName) + '</option>';
+      });
+    return opts;
+  }
+
+  ROUTES.charges = function () {
+    loading('Učitavanje zaduženja…');
+    ensureClients().then(function () {
+      return api('listCharges', baseFilters());
+    }).then(function (res) {
+      if (!res || !res.ok) return errBox((res && res.error) || 'Greška.');
+      renderCharges(res.charges);
+    }).catch(function (e) { errBox(e.message || String(e)); });
+  };
+
+  function renderCharges(rows) {
+    var html = '<div class="filters">';
+    html += '<div class="fld"><label>Tip</label><select id="chType"><option value="ALL">Svi</option>' +
+      '<option value="DINARSKA_FAKTURA">Dinarska faktura</option><option value="EUR_FAKTURA">EUR faktura</option>' +
+      '<option value="GOTOVINSKO_ZADUZENJE">Gotovinsko</option></select></div>';
+    html += '<div class="fld"><label>Status naplate</label><select id="chPS"><option value="ALL">Svi</option>' +
+      '<option value="OPEN">Otvoreno</option><option value="PARTIAL">Delimično</option>' +
+      '<option value="PAID">Plaćeno</option><option value="OVERPAID">Preplata</option></select></div>';
+    html += '<div class="fld"><label><input type="checkbox" id="chOverdue"> samo dospela</label></div>';
+    html += '<button class="btn" id="chFilter">Filtriraj</button>';
+    html += '<div style="margin-left:auto;display:flex;gap:8px">';
+    if (can('export')) html += '<button class="btn btn-sm" id="chExport">Izvoz CSV</button>';
+    if (can('charge.write')) html += '<button class="btn btn-primary" id="chNew">+ Novo zaduženje</button>';
+    html += '</div></div>';
+    html += '<div class="panel"><div class="panel-body table-wrap" id="chWrap"></div></div>';
+    el('content').innerHTML = html;
+
+    el('chFilter').onclick = function () {
+      var f = baseFilters();
+      f.chargeType = el('chType').value; f.paymentStatus = el('chPS').value;
+      f.overdueOnly = el('chOverdue').checked;
+      el('chWrap').innerHTML = '<div class="loading-block"><span class="spinner dark"></span></div>';
+      api('listCharges', f).then(function (r) { if (r && r.ok) chargesTable(r.charges); });
+    };
+    if (el('chNew')) el('chNew').onclick = function () { chargeForm(null); };
+    if (el('chExport')) el('chExport').onclick = function () { exportChargesCsv(); };
+    chargesTable(rows);
+  }
+
+  function chargesTable(rows) {
+    var w = el('chWrap');
+    STATE.cache.charges = rows;
+    if (!rows.length) { w.innerHTML = '<div class="empty">Nema zaduženja.</div>'; return; }
+    var html = '<table class="data"><thead><tr><th>Firma</th><th>Klijent</th><th>Dokument</th><th>Tip</th>' +
+      '<th>Izdato</th><th>Dospeva</th><th class="num">Iznos</th><th class="num">Otvoreno</th><th class="num">Dana</th><th>Status</th><th></th></tr></thead><tbody>';
+    rows.forEach(function (c) {
+      var od = c.daysOverdue > 0 ? '<span class="badge overdue">' + c.daysOverdue + '</span>' : '<span class="muted">—</span>';
+      html += '<tr><td><span class="tag-firma">' + esc(companyName(c.companyId)) + '</span></td>' +
+        '<td><span class="link" data-card="' + esc(c.clientId) + '">' + esc(c.clientName) + '</span></td>' +
+        '<td>' + esc(c.invoiceNumber || c.documentNumber || '—') + '</td><td>' + chargeTypeLabel(c.chargeType) + '</td>' +
+        '<td>' + dateSr(c.issueDate) + '</td><td>' + dateSr(c.dueDate) + '</td>' +
+        '<td class="num">' + money(c.amountRsd) + (c.originalCurrency === 'EUR' ? '<br><span class="muted" style="font-size:11px">' + eur(c.originalAmount) + '</span>' : '') + '</td>' +
+        '<td class="num">' + money(c.openAmountRsd) + '</td><td class="num">' + od + '</td>' +
+        '<td>' + payStatusBadge(c.paymentStatus, c.status) + '</td>' +
+        '<td class="num"><div class="row-actions" style="justify-content:flex-end">' +
+        (can('charge.cancel') && c.status === 'ACTIVE' && Number(c.paidAmountRsd || 0) === 0 ?
+          '<button class="btn btn-sm btn-danger" data-cancel="' + esc(c.chargeId) + '">Storno</button>' : '') +
+        '</div></td></tr>';
+    });
+    html += '</tbody></table>';
+    w.innerHTML = html;
+    $all('[data-card]', w).forEach(function (b) { b.onclick = function () { openClientCard(b.getAttribute('data-card')); }; });
+    $all('[data-cancel]', w).forEach(function (b) { b.onclick = function () { cancelChargePrompt(b.getAttribute('data-cancel')); }; });
+  }
+
+  function cancelChargePrompt(chargeId) {
+    openModal('Storniranje zaduženja',
+      '<p>Unesite razlog storniranja:</p><div class="form-grid"><div class="full"><textarea id="cancReason" rows="3"></textarea></div></div>',
+      '<button class="btn" id="cancNo">Otkaži</button><button class="btn btn-danger" id="cancYes">Storniraj</button>');
+    el('cancNo').onclick = closeModal;
+    el('cancYes').onclick = function () {
+      var reason = el('cancReason').value.trim();
+      if (!reason) { toast('Razlog je obavezan.', 'error'); return; }
+      el('cancYes').disabled = true;
+      api('cancelCharge', chargeId, reason).then(function (r) {
+        el('cancYes').disabled = false;
+        if (r && r.ok) { toast('Zaduženje stornirano.'); closeModal(); navigate('charges'); }
+        else toast((r && r.error) || 'Greška.', 'error');
+      }).catch(function (e) { el('cancYes').disabled = false; toast(e.message || String(e), 'error'); });
+    };
+  }
+
+  function exportChargesCsv() {
+    var rows = STATE.cache.charges || [];
+    var out = [['Firma', 'Klijent', 'Dokument', 'Tip', 'Izdato', 'Dospeva', 'Valuta', 'Iznos orig.', 'Kurs', 'Iznos RSD', 'Otvoreno RSD', 'Dana kašnjenja', 'Status']];
+    rows.forEach(function (c) {
+      out.push([companyName(c.companyId), c.clientName, c.invoiceNumber || c.documentNumber, chargeTypeLabel(c.chargeType),
+        dateSr(c.issueDate), dateSr(c.dueDate), c.originalCurrency, num(c.originalAmount), c.fxRate,
+        num(c.amountRsd), num(c.openAmountRsd), c.daysOverdue, c.paymentStatus]);
+    });
+    downloadCsv('zaduzenja.csv', out);
+    toast('Izvezeno.');
+  }
+
+  /* ---------------------- Forma zaduženja ---------------------- */
+  function chargeForm(c) {
+    c = c || {};
+    ensureClients().then(function () {
+      var defaultCompany = STATE.canSeeAll ? (c.companyId || '') : (STATE.companies[0] && STATE.companies[0].companyId);
+      var body = '<div class="form-grid">' +
+        '<div><label class="req">Firma</label><select id="zfCompany">' +
+          (STATE.canSeeAll ? '<option value="">— izaberite —</option>' : '') +
+          companyOptions(c.companyId || defaultCompany, false) + '</select></div>' +
+        '<div><label class="req">Klijent</label><select id="zfClient">' + clientOptions(c.clientId) + '</select></div>' +
+        '<div><label class="req">Tip zaduženja</label><select id="zfType">' +
+          '<option value="DINARSKA_FAKTURA">Dinarska faktura</option>' +
+          '<option value="EUR_FAKTURA">EUR faktura</option>' +
+          '<option value="GOTOVINSKO_ZADUZENJE">Gotovinsko zaduženje</option></select></div>' +
+        '<div><label>Broj dokumenta</label><input id="zfDoc" value="' + esc(c.documentNumber || '') + '"></div>' +
+        '<div id="zfInvWrap"><label class="req">Broj fakture</label><input id="zfInv" value="' + esc(c.invoiceNumber || '') + '"></div>' +
+        '<div><label class="req">Datum izdavanja</label><input id="zfIssue" type="date" value="' + esc(c.issueDate || todayIso()) + '"></div>' +
+        '<div><label class="req">Datum dospeća</label><input id="zfDue" type="date" value="' + esc(c.dueDate || '') + '"></div>' +
+        '<div><label class="req">Valuta</label><select id="zfCur"><option value="RSD">RSD</option><option value="EUR">EUR</option></select></div>' +
+        '<div><label class="req">Iznos (orig.)</label><input id="zfAmount" type="number" step="0.01" value="' + esc(c.originalAmount || '') + '"></div>' +
+        '<div id="zfFxWrap"><label class="req">Kurs (RSD za 1 EUR)</label><input id="zfFx" type="number" step="0.0001" value="' + esc(c.fxRate || '') + '"></div>' +
+        '<div class="full"><label>Opis</label><input id="zfDesc" value="' + esc(c.description || '') + '"></div>' +
+        '<div class="full"><div class="help" id="zfRsdHint"></div></div>' +
+        '</div>';
+      openModal(c.chargeId ? 'Izmena zaduženja' : 'Novo zaduženje', body,
+        '<button class="btn" id="zfCancel">Otkaži</button><button class="btn btn-primary" id="zfSave">Sačuvaj</button>', true);
+
+      var typeSel = el('zfType'), curSel = el('zfCur');
+      if (c.chargeType) typeSel.value = c.chargeType;
+      if (c.originalCurrency) curSel.value = c.originalCurrency;
+
+      function syncByType() {
+        var t = typeSel.value;
+        // valuta i vidljivost polja
+        if (t === 'EUR_FAKTURA') { curSel.value = 'EUR'; curSel.disabled = true; }
+        else if (t === 'DINARSKA_FAKTURA') { curSel.value = 'RSD'; curSel.disabled = true; }
+        else { curSel.disabled = false; }
+        el('zfInvWrap').style.display = (t === 'GOTOVINSKO_ZADUZENJE') ? 'none' : '';
+        syncByCur();
+      }
+      function syncByCur() {
+        el('zfFxWrap').style.display = (curSel.value === 'EUR') ? '' : 'none';
+        updateHint();
+      }
+      function updateHint() {
+        var amt = parseFloat(el('zfAmount').value) || 0;
+        var fx = parseFloat(el('zfFx').value) || 0;
+        var rsd = curSel.value === 'EUR' ? amt * fx : amt;
+        el('zfRsdHint').textContent = 'Iznos u RSD: ' + money(rsd);
+      }
+      typeSel.onchange = syncByType;
+      curSel.onchange = syncByCur;
+      el('zfAmount').oninput = updateHint;
+      el('zfFx').oninput = updateHint;
+      syncByType();
+
+      el('zfCancel').onclick = closeModal;
+      el('zfSave').onclick = function () {
+        var data = {
+          chargeId: c.chargeId || null,
+          companyId: el('zfCompany').value,
+          clientId: el('zfClient').value,
+          chargeType: typeSel.value,
+          documentNumber: el('zfDoc').value.trim(),
+          invoiceNumber: el('zfInv').value.trim(),
+          issueDate: el('zfIssue').value,
+          dueDate: el('zfDue').value,
+          originalCurrency: curSel.value,
+          originalAmount: el('zfAmount').value,
+          fxRate: el('zfFx').value,
+          description: el('zfDesc').value.trim()
+        };
+        if (!data.companyId) { toast('Izaberite firmu.', 'error'); return; }
+        if (!data.clientId) { toast('Izaberite klijenta.', 'error'); return; }
+        el('zfSave').disabled = true;
+        api('saveCharge', data).then(function (r) {
+          el('zfSave').disabled = false;
+          if (r && r.ok) { toast('Zaduženje sačuvano.'); closeModal(); navigate('charges'); }
+          else toast((r && r.error) || 'Greška.', 'error');
+        }).catch(function (e) { el('zfSave').disabled = false; toast(e.message || String(e), 'error'); });
+      };
+    });
+  }
+
+  /* ============================================================
+     NAPLATE
+     ============================================================ */
+  ROUTES.payments = function () {
+    loading('Učitavanje naplata…');
+    ensureClients().then(function () { return api('listPayments', baseFilters()); }).then(function (res) {
+      if (!res || !res.ok) return errBox((res && res.error) || 'Greška.');
+      renderPayments(res.payments);
+    }).catch(function (e) { errBox(e.message || String(e)); });
+  };
+
+  function renderPayments(rows) {
+    var html = '<div class="right-actions">';
+    if (can('export')) html += '<button class="btn btn-sm" id="pmExport">Izvoz CSV</button>';
+    if (can('payment.write')) html += '<button class="btn btn-primary" id="pmNew">+ Nova naplata</button>';
+    html += '</div><div class="panel"><div class="panel-body table-wrap" id="pmWrap"></div></div>';
+    el('content').innerHTML = html;
+    if (el('pmNew')) el('pmNew').onclick = function () { paymentForm(null); };
+    if (el('pmExport')) el('pmExport').onclick = function () {
+      var out = [['Datum', 'Firma', 'Klijent', 'Način', 'Valuta', 'Iznos orig.', 'Kurs', 'Iznos RSD', 'Referenca', 'Stornirano']];
+      (STATE.cache.payments || []).forEach(function (p) {
+        out.push([dateSr(p.paymentDate), companyName(p.companyId), p.clientName, payMethodLabel(p.paymentMethod),
+          p.paymentCurrency, num(p.paymentAmount), p.fxRate, num(p.amountRsd), p.reference || '', p.cancelledAt ? 'DA' : '']);
+      });
+      downloadCsv('naplate.csv', out); toast('Izvezeno.');
+    };
+    paymentsTable(rows);
+  }
+
+  function paymentsTable(rows) {
+    STATE.cache.payments = rows;
+    var w = el('pmWrap');
+    if (!rows.length) { w.innerHTML = '<div class="empty">Nema naplata.</div>'; return; }
+    var html = '<table class="data"><thead><tr><th>Datum</th><th>Firma</th><th>Klijent</th><th>Način</th>' +
+      '<th class="num">Iznos</th><th>Referenca</th><th></th></tr></thead><tbody>';
+    rows.forEach(function (p) {
+      html += '<tr><td>' + dateSr(p.paymentDate) + '</td><td><span class="tag-firma">' + esc(companyName(p.companyId)) + '</span></td>' +
+        '<td><span class="link" data-card="' + esc(p.clientId) + '">' + esc(p.clientName) + '</span></td>' +
+        '<td>' + payMethodLabel(p.paymentMethod) + '</td>' +
+        '<td class="num">' + money(p.amountRsd) + (p.paymentCurrency === 'EUR' ? '<br><span class="muted" style="font-size:11px">' + eur(p.paymentAmount) + '</span>' : '') +
+        (p.cancelledAt ? ' <span class="badge cancelled">storno</span>' : '') + '</td>' +
+        '<td>' + esc(p.reference || '—') + '</td>' +
+        '<td class="num"><div class="row-actions" style="justify-content:flex-end">' +
+        (can('payment.cancel') && !p.cancelledAt ? '<button class="btn btn-sm btn-danger" data-canc="' + esc(p.paymentId) + '">Storno</button>' : '') +
+        '</div></td></tr>';
+    });
+    html += '</tbody></table>';
+    w.innerHTML = html;
+    $all('[data-card]', w).forEach(function (b) { b.onclick = function () { openClientCard(b.getAttribute('data-card')); }; });
+    $all('[data-canc]', w).forEach(function (b) { b.onclick = function () { cancelPaymentPrompt(b.getAttribute('data-canc')); }; });
+  }
+
+  function cancelPaymentPrompt(paymentId) {
+    openModal('Storniranje naplate',
+      '<p>Storniranje vraća alocirane iznose na zaduženja. Unesite razlog:</p>' +
+      '<div class="form-grid"><div class="full"><textarea id="pcReason" rows="3"></textarea></div></div>',
+      '<button class="btn" id="pcNo">Otkaži</button><button class="btn btn-danger" id="pcYes">Storniraj</button>');
+    el('pcNo').onclick = closeModal;
+    el('pcYes').onclick = function () {
+      var reason = el('pcReason').value.trim();
+      if (!reason) { toast('Razlog je obavezan.', 'error'); return; }
+      el('pcYes').disabled = true;
+      api('cancelPayment', paymentId, reason).then(function (r) {
+        el('pcYes').disabled = false;
+        if (r && r.ok) { toast('Naplata stornirana.'); closeModal(); navigate('payments'); }
+        else toast((r && r.error) || 'Greška.', 'error');
+      }).catch(function (e) { el('pcYes').disabled = false; toast(e.message || String(e), 'error'); });
+    };
+  }
+
+  /* ---------------------- Forma naplate ---------------------- */
+  function paymentForm(pre) {
+    pre = pre || {};
+    ensureClients().then(function () {
+      var defaultCompany = STATE.canSeeAll ? '' : (STATE.companies[0] && STATE.companies[0].companyId);
+      var body = '<div class="form-grid">' +
+        '<div><label class="req">Firma</label><select id="pfCompany">' +
+          (STATE.canSeeAll ? '<option value="">— izaberite —</option>' : '') + companyOptions(defaultCompany, false) + '</select></div>' +
+        '<div><label class="req">Klijent</label><select id="pfClient">' + clientOptions(pre.clientId) + '</select></div>' +
+        '<div><label class="req">Datum naplate</label><input id="pfDate" type="date" value="' + todayIso() + '"></div>' +
+        '<div><label class="req">Način plaćanja</label><select id="pfMethod">' +
+          '<option value="BANK">Banka</option><option value="CASH">Gotovina</option><option value="CARD">Kartica</option>' +
+          '<option value="OFFSET">Kompenzacija</option><option value="OTHER">Ostalo</option></select></div>' +
+        '<div><label class="req">Valuta</label><select id="pfCur"><option value="RSD">RSD</option><option value="EUR">EUR</option></select></div>' +
+        '<div><label class="req">Iznos</label><input id="pfAmount" type="number" step="0.01"></div>' +
+        '<div id="pfFxWrap" style="display:none"><label class="req">Kurs</label><input id="pfFx" type="number" step="0.0001"></div>' +
+        '<div><label>Referenca / izvod</label><input id="pfRef"></div>' +
+        '<div class="full"><label>Napomena</label><input id="pfNote"></div>' +
+        '</div>' +
+        '<div class="help">Raspored po fakturama (FIFO predlog — možete korigovati iznose):</div>' +
+        '<div class="table-wrap" id="pfAlloc"><div class="empty">Izaberite klijenta i unesite iznos, pa kliknite „Predloži raspored“.</div></div>' +
+        '<div class="mt12"><button class="btn btn-sm" id="pfPropose">Predloži raspored (FIFO)</button> ' +
+        '<span id="pfAllocSum" class="muted"></span></div>';
+      openModal('Nova naplata', body,
+        '<button class="btn" id="pfCancel">Otkaži</button><button class="btn btn-primary" id="pfSave">Sačuvaj naplatu</button>', true);
+
+      var curSel = el('pfCur');
+      curSel.onchange = function () { el('pfFxWrap').style.display = curSel.value === 'EUR' ? '' : 'none'; };
+
+      function amountRsd() {
+        var amt = parseFloat(el('pfAmount').value) || 0;
+        var fx = parseFloat(el('pfFx') ? el('pfFx').value : 0) || 0;
+        return curSel.value === 'EUR' ? amt * fx : amt;
+      }
+
+      el('pfPropose').onclick = function () {
+        var clientId = el('pfClient').value, companyId = el('pfCompany').value;
+        if (!clientId) { toast('Izaberite klijenta.', 'error'); return; }
+        var rsd = amountRsd();
+        if (rsd <= 0) { toast('Unesite iznos.', 'error'); return; }
+        api('proposeAllocation', clientId, companyId || 'ALL', rsd).then(function (r) {
+          if (!r || !r.ok) { toast((r && r.error) || 'Greška.', 'error'); return; }
+          renderAllocTable(r.allocations, r.unallocatedRsd);
+        }).catch(function (e) { toast(e.message || String(e), 'error'); });
+      };
+
+      function renderAllocTable(allocs, unalloc) {
+        var w = el('pfAlloc');
+        if (!allocs.length) {
+          w.innerHTML = '<div class="empty">Nema otvorenih zaduženja za ovog klijenta. Ceo iznos ide kao preplata/avans.</div>';
+          el('pfAllocSum').textContent = 'Nealocirano (preplata): ' + money(amountRsd());
+          w.dataset.alloc = '[]';
+          return;
+        }
+        var html = '<table class="data"><thead><tr><th>Faktura</th><th>Dospeva</th><th class="num">Otvoreno</th><th class="num">Alocirati (RSD)</th></tr></thead><tbody>';
+        allocs.forEach(function (a, i) {
+          html += '<tr><td>' + esc(a.invoiceNumber || '—') + '</td><td>' + dateSr(a.dueDate) + '</td>' +
+            '<td class="num">' + money(a.openAmountRsd) + '</td>' +
+            '<td class="num"><input type="number" step="0.01" class="allocInp" data-charge="' + esc(a.chargeId) + '" data-open="' + a.openAmountRsd + '" ' +
+            'value="' + a.allocatedAmountRsd + '" style="width:130px;text-align:right;padding:5px 8px;border:1px solid var(--border);border-radius:6px"></td></tr>';
+        });
+        html += '</tbody></table>';
+        w.innerHTML = html;
+        $all('.allocInp', w).forEach(function (inp) { inp.oninput = recalcAlloc; });
+        recalcAlloc();
+      }
+
+      function recalcAlloc() {
+        var sum = 0;
+        $all('.allocInp').forEach(function (inp) {
+          var v = parseFloat(inp.value) || 0;
+          var open = parseFloat(inp.getAttribute('data-open')) || 0;
+          if (v > open) { inp.value = open; v = open; }
+          if (v < 0) { inp.value = 0; v = 0; }
+          sum += v;
+        });
+        var total = amountRsd();
+        var rest = Math.round((total - sum) * 100) / 100;
+        el('pfAllocSum').innerHTML = 'Alocirano: <b>' + money(sum) + '</b> · Preostalo (preplata): <b>' + money(rest) + '</b>';
+        if (sum > total + 0.01) el('pfAllocSum').style.color = 'var(--red)';
+        else el('pfAllocSum').style.color = '';
+      }
+
+      el('pfAmount').oninput = function () { if ($all('.allocInp').length) recalcAlloc(); };
+      el('pfCancel').onclick = closeModal;
+      el('pfSave').onclick = function () {
+        var data = {
+          clientId: el('pfClient').value, companyId: el('pfCompany').value,
+          paymentDate: el('pfDate').value, paymentMethod: el('pfMethod').value,
+          paymentCurrency: curSel.value, paymentAmount: el('pfAmount').value,
+          fxRate: el('pfFx') ? el('pfFx').value : '', reference: el('pfRef').value.trim(), note: el('pfNote').value.trim()
+        };
+        if (!data.companyId) { toast('Izaberite firmu.', 'error'); return; }
+        if (!data.clientId) { toast('Izaberite klijenta.', 'error'); return; }
+        if (!(parseFloat(data.paymentAmount) > 0)) { toast('Unesite iznos.', 'error'); return; }
+        var allocs = $all('.allocInp').map(function (inp) {
+          return { chargeId: inp.getAttribute('data-charge'), allocatedAmountRsd: parseFloat(inp.value) || 0 };
+        }).filter(function (a) { return a.allocatedAmountRsd > 0; });
+        el('pfSave').disabled = true;
+        api('savePayment', data, allocs).then(function (r) {
+          el('pfSave').disabled = false;
+          if (r && r.ok) {
+            toast(r.overpayWarning ? r.overpayWarning : 'Naplata sačuvana.', r.overpayWarning ? 'success' : 'success');
+            closeModal(); navigate('payments');
+          } else toast((r && r.error) || 'Greška.', 'error');
+        }).catch(function (e) { el('pfSave').disabled = false; toast(e.message || String(e), 'error'); });
+      };
+    });
+  }
+
+  /* ============================================================
+     UVOZ (Excel/CSV)
+     ============================================================ */
+  var IMPORT_FIELDS = [
+    { key: 'company', label: 'Firma', req: true },
+    { key: 'clientName', label: 'Naziv klijenta', req: true },
+    { key: 'pib', label: 'PIB', req: false },
+    { key: 'mb', label: 'Matični broj', req: false },
+    { key: 'chargeType', label: 'Tip zaduženja', req: false },
+    { key: 'documentNumber', label: 'Broj dokumenta', req: false },
+    { key: 'invoiceNumber', label: 'Broj fakture', req: false },
+    { key: 'issueDate', label: 'Datum izdavanja', req: true },
+    { key: 'dueDate', label: 'Datum dospeća', req: true },
+    { key: 'description', label: 'Opis', req: false },
+    { key: 'originalCurrency', label: 'Valuta', req: false },
+    { key: 'originalAmount', label: 'Iznos', req: true },
+    { key: 'fxRate', label: 'Kurs', req: false }
+  ];
+  var IMPORT = { rawRows: [], headers: [], fileName: '', preview: [], summary: null, batchId: null };
+
+  ROUTES.import = function () {
+    if (!can('import')) { errBox('Nemate dozvolu za uvoz.'); return; }
+    ensureClients().then(renderImportStep1);
+  };
+
+  function renderImportStep1() {
+    var html = '<div class="panel"><div class="panel-head"><h3>Korak 1 · Učitavanje fajla</h3></div><div class="panel-body">';
+    html += '<p class="help">Podržani formati: Excel (.xlsx, .xls) i CSV. Prvi red treba da sadrži nazive kolona.</p>';
+    html += '<input type="file" id="impFile" accept=".xlsx,.xls,.csv">';
+    html += '<div id="impMapArea" class="mt12"></div>';
+    html += '</div></div>';
+    html += '<div class="panel mt12"><div class="panel-head"><h3>Istorija uvoza</h3></div><div class="panel-body table-wrap" id="impHistory"><div class="loading-block"><span class="spinner dark"></span></div></div></div>';
+    el('content').innerHTML = html;
+    el('impFile').onchange = handleImportFile;
+    loadImportHistory();
+  }
+
+  function loadImportHistory() {
+    api('listImportBatches', {}).then(function (r) {
+      var w = el('impHistory'); if (!w) return;
+      if (!r || !r.ok || !r.batches.length) { w.innerHTML = '<div class="empty">Nema prethodnih uvoza.</div>'; return; }
+      var h = '<table class="data"><thead><tr><th>Datum</th><th>Fajl</th><th class="num">Ukupno</th><th class="num">Validno</th>' +
+        '<th class="num">Upoz.</th><th class="num">Greške</th><th class="num">Uvezeno</th><th>Status</th></tr></thead><tbody>';
+      r.batches.forEach(function (b) {
+        h += '<tr><td>' + dateSr(b.createdAt) + '</td><td>' + esc(b.fileName || '—') + '</td>' +
+          '<td class="num">' + b.totalRows + '</td><td class="num">' + b.validRows + '</td>' +
+          '<td class="num">' + b.warningRows + '</td><td class="num">' + b.errorRows + '</td>' +
+          '<td class="num">' + b.importedRows + '</td><td><span class="badge ' +
+          (b.status === 'IMPORTED' ? 'paid' : (b.status === 'PARTIAL' ? 'partial' : (b.status === 'REJECTED' ? 'cancelled' : 'gray'))) +
+          '">' + esc(b.status) + '</span></td></tr>';
+      });
+      w.innerHTML = h + '</tbody></table>';
+    });
+  }
+
+  function handleImportFile(ev) {
+    var file = ev.target.files[0]; if (!file) return;
+    IMPORT.fileName = file.name;
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        var data = new Uint8Array(e.target.result);
+        var wb = XLSX.read(data, { type: 'array', cellDates: true });
+        var sheet = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+        if (!rows.length) { toast('Fajl je prazan.', 'error'); return; }
+        IMPORT.headers = rows[0].map(function (h) { return String(h).trim(); });
+        IMPORT.rawRows = rows.slice(1).filter(function (r) { return r.some(function (c) { return String(c).trim() !== ''; }); });
+        renderMapping();
+      } catch (err) { toast('Greška pri čitanju: ' + err.message, 'error'); }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function guessColumn(fieldKey) {
+    var aliases = {
+      company: ['firma', 'company', 'kompanija'], clientName: ['klijent', 'naziv', 'kupac', 'partner', 'client'],
+      pib: ['pib'], mb: ['mb', 'maticni', 'matični'], chargeType: ['tip', 'vrsta'],
+      documentNumber: ['dokument', 'broj dokumenta', 'document'], invoiceNumber: ['faktura', 'racun', 'račun', 'invoice', 'broj fakture'],
+      issueDate: ['datum izdavanja', 'izdavanje', 'datum', 'issue'], dueDate: ['dospece', 'dospeće', 'valuta placanja', 'rok', 'due'],
+      description: ['opis', 'napomena', 'description'], originalCurrency: ['valuta', 'currency'],
+      originalAmount: ['iznos', 'amount', 'vrednost'], fxRate: ['kurs', 'rate']
+    };
+    var lst = aliases[fieldKey] || [];
+    for (var i = 0; i < IMPORT.headers.length; i++) {
+      var h = IMPORT.headers[i].toLowerCase();
+      for (var j = 0; j < lst.length; j++) if (h.indexOf(lst[j]) !== -1) return i;
+    }
+    return -1;
+  }
+
+  function renderMapping() {
+    var colOpts = '<option value="-1">— nije u fajlu —</option>' +
+      IMPORT.headers.map(function (h, i) { return '<option value="' + i + '">' + esc(h || ('Kolona ' + (i + 1))) + '</option>'; }).join('');
+    var html = '<div class="panel" style="margin-top:14px"><div class="panel-head"><h3>Korak 2 · Mapiranje kolona (' + IMPORT.rawRows.length + ' redova)</h3></div><div class="panel-body">';
+    html += '<div class="form-grid">';
+    html += '<div><label>Podrazumevana firma (ako nije u fajlu)</label><select id="impDefCompany"><option value="">—</option>' + companyOptions('', false) + '</select></div>';
+    html += '<div><label>Podrazumevani tip (ako nije u fajlu)</label><select id="impDefType">' +
+      '<option value="DINARSKA_FAKTURA">Dinarska faktura</option><option value="EUR_FAKTURA">EUR faktura</option><option value="GOTOVINSKO_ZADUZENJE">Gotovinsko</option></select></div>';
+    html += '<div><label>Podrazumevana valuta</label><select id="impDefCur"><option value="">— iz tipa —</option><option value="RSD">RSD</option><option value="EUR">EUR</option></select></div>';
+    html += '</div><hr style="border:none;border-top:1px solid var(--border);margin:14px 0">';
+    html += '<div class="form-grid">';
+    IMPORT_FIELDS.forEach(function (f) {
+      var g = guessColumn(f.key);
+      html += '<div><label' + (f.req ? ' class="req"' : '') + '>' + esc(f.label) + '</label>' +
+        '<select data-map="' + f.key + '">' + colOpts.replace('value="' + g + '"', 'value="' + g + '" selected') + '</select></div>';
+    });
+    html += '</div>';
+    html += '<div class="mt12"><button class="btn btn-primary" id="impValidate">Proveri podatke →</button></div>';
+    html += '</div></div>';
+    el('impMapArea').innerHTML = html;
+    el('impValidate').onclick = runValidation;
+  }
+
+  function buildMappedRows() {
+    var map = {};
+    $all('[data-map]').forEach(function (sel) { map[sel.getAttribute('data-map')] = parseInt(sel.value, 10); });
+    var defCompany = el('impDefCompany').value;
+    var defType = el('impDefType').value;
+    var defCur = el('impDefCur').value;
+    var rows = IMPORT.rawRows.map(function (r) {
+      function val(key) { var i = map[key]; return (i >= 0 && i < r.length) ? String(r[i]).trim() : ''; }
+      var o = {
+        company: val('company') || defCompany,
+        clientName: val('clientName'), pib: val('pib'), mb: val('mb'),
+        chargeType: val('chargeType') || defType,
+        documentNumber: val('documentNumber'), invoiceNumber: val('invoiceNumber'),
+        issueDate: val('issueDate'), dueDate: val('dueDate'), description: val('description'),
+        originalCurrency: val('originalCurrency') || defCur,
+        originalAmount: val('originalAmount'), fxRate: val('fxRate')
+      };
+      return o;
+    });
+    return { rows: rows, map: map };
+  }
+
+  function runValidation() {
+    var built = buildMappedRows();
+    el('impValidate').disabled = true;
+    el('impValidate').textContent = 'Provera…';
+    api('validateImportRows', built.rows, built.map).then(function (res) {
+      el('impValidate').disabled = false;
+      el('impValidate').textContent = 'Proveri podatke →';
+      if (!res || !res.ok) { toast((res && res.error) || 'Greška.', 'error'); return; }
+      IMPORT.preview = res.preview; IMPORT.summary = res.summary;
+      renderPreview();
+    }).catch(function (e) {
+      el('impValidate').disabled = false; el('impValidate').textContent = 'Proveri podatke →';
+      toast(e.message || String(e), 'error');
+    });
+  }
+
+  function recomputePreviewStatus(p) {
+    p.status = p.errors.length ? 'ERROR' : (p.warnings.length ? 'WARNING' : 'VALID');
+  }
+  function recomputeSummary() {
+    var s = { total: IMPORT.preview.length, valid: 0, warnings: 0, errors: 0 };
+    IMPORT.preview.forEach(function (p) {
+      if (p.status === 'ERROR') s.errors++; else if (p.status === 'WARNING') s.warnings++; else s.valid++;
+    });
+    IMPORT.summary = s;
+  }
+
+  function renderPreview() {
+    var s = IMPORT.summary;
+    var html = '<div class="panel" style="margin-top:14px"><div class="panel-head"><h3>Korak 3 · Pregled i potvrda</h3></div><div class="panel-body">';
+    html += '<div class="kpi-grid" style="margin-bottom:14px">';
+    html += '<div class="kpi"><div class="label">Ukupno</div><div class="value">' + s.total + '</div></div>';
+    html += '<div class="kpi"><div class="label">Validno</div><div class="value" style="color:var(--green)">' + s.valid + '</div></div>';
+    html += '<div class="kpi"><div class="label">Upozorenja</div><div class="value" style="color:var(--amber)">' + s.warnings + '</div></div>';
+    html += '<div class="kpi"><div class="label">Greške</div><div class="value red">' + s.errors + '</div></div>';
+    html += '</div>';
+    html += '<label style="font-size:13px"><input type="checkbox" id="impInclWarn" checked> Uvezi i redove sa upozorenjima</label>';
+    html += '<div class="table-wrap mt12" id="impPrevWrap"></div>';
+    html += '<div class="mt12"><button class="btn" id="impBack">← Nazad</button> ' +
+      '<button class="btn btn-primary" id="impCommit">Uvezi podatke</button></div>';
+    html += '</div></div>';
+    el('impMapArea').innerHTML = html;
+    el('impBack').onclick = renderMapping;
+    el('impCommit').onclick = commitImportNow;
+    drawPreviewTable();
+  }
+
+  function drawPreviewTable() {
+    var w = el('impPrevWrap');
+    var html = '<table class="data"><thead><tr><th>#</th><th>Status</th><th>Firma</th><th>Klijent</th><th>Faktura</th>' +
+      '<th>Dospeva</th><th class="num">Iznos RSD</th><th>Poruke</th></tr></thead><tbody>';
+    IMPORT.preview.forEach(function (p, idx) {
+      var badge = p.status === 'VALID' ? '<span class="badge valid">OK</span>' :
+        (p.status === 'WARNING' ? '<span class="badge warning">Upozorenje</span>' : '<span class="badge error">Greška</span>');
+      var msgs = (p.errors || []).map(function (e) { return '⛔ ' + e.msg; })
+        .concat((p.warnings || []).map(function (wn) { return '⚠ ' + wn.msg; })).map(esc).join('<br>');
+
+      // klijent ćelija — ako nije pouzdano prepoznat, ponudi izbor
+      var clientCell;
+      var needPick = !p.normalized.clientId || p.status === 'ERROR';
+      if (needPick || (p.clientCandidates && p.clientCandidates.length)) {
+        var opts = '<option value="">— izaberi —</option>';
+        (STATE.cache.clients || []).slice().sort(function (a, b) { return a.clientName.localeCompare(b.clientName, 'sr'); })
+          .forEach(function (c) {
+            opts += '<option value="' + esc(c.clientId) + '"' + (p.normalized.clientId === c.clientId ? ' selected' : '') + '>' + esc(c.clientName) + '</option>';
+          });
+        clientCell = '<select class="impClientSel" data-idx="' + idx + '" style="max-width:180px;padding:4px 6px;border:1px solid var(--border);border-radius:6px">' + opts + '</select>';
+      } else {
+        clientCell = esc(p.proposedClient || '');
+      }
+
+      html += '<tr><td>' + p.rowNumber + '</td><td>' + badge + '</td>' +
+        '<td>' + esc(companyName(p.normalized.companyId) || p.proposedCompany || '—') + '</td>' +
+        '<td>' + clientCell + '</td>' +
+        '<td>' + esc(p.normalized.invoiceNumber || p.normalized.documentNumber || '—') + '</td>' +
+        '<td>' + dateSr(p.normalized.dueDate) + '</td>' +
+        '<td class="num">' + money(p.normalized.amountRsd || p.amountRsd || 0) + '</td>' +
+        '<td style="font-size:12px;color:var(--muted)">' + (msgs || '—') + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    w.innerHTML = html;
+
+    $all('.impClientSel', w).forEach(function (sel) {
+      sel.onchange = function () {
+        var idx = parseInt(sel.getAttribute('data-idx'), 10);
+        var p = IMPORT.preview[idx];
+        p.normalized.clientId = sel.value;
+        // ukloni grešku/upozorenje vezano za klijenta
+        p.errors = (p.errors || []).filter(function (e) { return e.field !== 'clientName'; });
+        p.warnings = (p.warnings || []).filter(function (e) { return e.field !== 'clientName'; });
+        if (!sel.value) p.errors.push({ field: 'clientName', msg: 'Klijent nije izabran.' });
+        recomputePreviewStatus(p);
+        recomputeSummary();
+        renderPreview();
+      };
+    });
+  }
+
+  function commitImportNow() {
+    var includeWarnings = el('impInclWarn').checked;
+    var companyMode = el('globalCompany') ? companyFilter() : 'ALL';
+    el('impCommit').disabled = true; el('impCommit').textContent = 'Uvoz…';
+    // 1) staging
+    api('stageImport', IMPORT.preview, IMPORT.summary, IMPORT.fileName, companyMode, 'CHARGES').then(function (st) {
+      if (!st || !st.ok) throw new Error((st && st.error) || 'Greška pri pripremi.');
+      IMPORT.batchId = st.batchId;
+      // 2) commit
+      return api('commitImport', st.batchId, IMPORT.preview, includeWarnings);
+    }).then(function (res) {
+      el('impCommit').disabled = false; el('impCommit').textContent = 'Uvezi podatke';
+      if (!res || !res.ok) { toast((res && res.error) || 'Greška.', 'error'); return; }
+      toast('Uvezeno: ' + res.imported + ', preskočeno: ' + res.skipped + '.');
+      IMPORT.preview = []; IMPORT.rawRows = [];
+      renderImportStep1();
+    }).catch(function (e) {
+      el('impCommit').disabled = false; el('impCommit').textContent = 'Uvezi podatke';
+      toast(e.message || String(e), 'error');
+    });
+  }
+
+  /* ============================================================
+     OPOMENE
+     ============================================================ */
+  ROUTES.reminders = function () {
+    var html = '<div class="pill-tabs" id="remTabs">' +
+      '<div class="pill active" data-tab="work">Radna lista</div>' +
+      '<div class="pill" data-tab="log">Istorija opomena</div></div>' +
+      '<div id="remBody"><div class="loading-block"><span class="spinner dark"></span></div></div>';
+    el('content').innerHTML = html;
+    $all('#remTabs .pill').forEach(function (p) {
+      p.onclick = function () {
+        $all('#remTabs .pill').forEach(function (x) { x.classList.remove('active'); });
+        p.classList.add('active');
+        if (p.getAttribute('data-tab') === 'work') loadWorklist(); else loadReminderLog();
+      };
+    });
+    loadWorklist();
+  };
+
+  function loadWorklist() {
+    el('remBody').innerHTML = '<div class="loading-block"><span class="spinner dark"></span></div>';
+    api('getReminderWorklist', { companyId: companyFilter() }).then(function (res) {
+      if (!res || !res.ok) { el('remBody').innerHTML = '<div class="login-error">' + esc((res && res.error) || 'Greška') + '</div>'; return; }
+      var rows = res.worklist;
+      var html = '<div class="panel"><div class="panel-head"><h3>Prioritetna lista za naplatu (' + rows.length + ')</h3></div><div class="panel-body table-wrap">';
+      if (!rows.length) { html += '<div class="empty">Nema dospelih dugovanja. 🎉</div></div></div>'; el('remBody').innerHTML = html; return; }
+      html += '<table class="data"><thead><tr><th>Prioritet</th><th>Klijent</th><th class="num">Otvoreno</th><th class="num">Maks. kašnjenje</th>' +
+        '<th class="num">Faktura</th><th class="num">Ranije opomena</th><th>Oznake</th><th>Predlog</th><th></th></tr></thead><tbody>';
+      rows.forEach(function (r, i) {
+        var flags = '';
+        if (r.brokenPromise) flags += '<span class="badge overdue" title="Probijeno obećanje">obećanje</span> ';
+        if (r.overLimit) flags += '<span class="badge error" title="Preko kreditnog limita">limit</span> ';
+        html += '<tr><td><span class="badge ' + (i < 3 ? 'overdue' : 'gray') + '">#' + (i + 1) + '</span></td>' +
+          '<td><span class="link" data-card="' + esc(r.clientId) + '">' + esc(r.clientName) + '</span>' +
+          (r.phone ? '<br><span class="muted" style="font-size:11px">' + esc(r.phone) + '</span>' : '') + '</td>' +
+          '<td class="num">' + money(r.openAmountRsd) + '</td><td class="num">' + r.maxOverdue + ' dana</td>' +
+          '<td class="num">' + r.chargeCount + '</td><td class="num">' + r.previousReminders + '</td>' +
+          '<td>' + (flags || '—') + '</td><td><span class="badge gray">' + reminderLevelLabel(r.suggestedLevel) + '</span></td>' +
+          '<td class="num">' + (can('reminder.write') ?
+            '<button class="btn btn-sm btn-primary" data-rem="' + esc(r.clientId) + '">Opomeni</button>' : '') + '</td></tr>';
+      });
+      html += '</tbody></table></div></div>';
+      el('remBody').innerHTML = html;
+      $all('#remBody [data-card]').forEach(function (b) { b.onclick = function () { openClientCard(b.getAttribute('data-card')); }; });
+      $all('#remBody [data-rem]').forEach(function (b) {
+        b.onclick = function () {
+          var cid = b.getAttribute('data-rem');
+          var item = rows.filter(function (x) { return x.clientId === cid; })[0];
+          reminderForm({ clientId: cid, clientName: item.clientName, suggestedLevel: item.suggestedLevel });
+        };
+      });
+    }).catch(function (e) { el('remBody').innerHTML = '<div class="login-error">' + esc(e.message || String(e)) + '</div>'; });
+  }
+
+  function loadReminderLog() {
+    el('remBody').innerHTML = '<div class="loading-block"><span class="spinner dark"></span></div>';
+    api('listReminderLogs', baseFilters()).then(function (res) {
+      if (!res || !res.ok) { el('remBody').innerHTML = '<div class="login-error">' + esc((res && res.error) || 'Greška') + '</div>'; return; }
+      var rows = res.reminders;
+      var html = '<div class="right-actions">' +
+        (can('reminder.write') ? '<button class="btn btn-primary" id="remNew">+ Nova opomena</button>' : '') + '</div>';
+      html += '<div class="panel"><div class="panel-body table-wrap">';
+      if (!rows.length) html += '<div class="empty">Nema zabeleženih opomena.</div>';
+      else {
+        html += '<table class="data"><thead><tr><th>Datum</th><th>Klijent</th><th>Nivo</th><th>Kanal</th><th>Rezultat</th>' +
+          '<th>Obećanje</th><th>Napomena</th></tr></thead><tbody>';
+        rows.forEach(function (r) {
+          html += '<tr><td>' + dateSr(r.reminderDate) + '</td><td>' + esc(r.clientName) + '</td>' +
+            '<td>' + reminderLevelLabel(r.reminderLevel) + '</td><td>' + channelLabel(r.channel) + '</td>' +
+            '<td>' + reminderResultLabel(r.result) + '</td>' +
+            '<td>' + (r.promiseToPayDate ? dateSr(r.promiseToPayDate) + (Number(r.promiseAmountRsd) ? ' / ' + money(r.promiseAmountRsd) : '') : '—') + '</td>' +
+            '<td>' + esc(r.note || '') + '</td></tr>';
+        });
+        html += '</tbody></table>';
+      }
+      html += '</div></div>';
+      el('remBody').innerHTML = html;
+      if (el('remNew')) el('remNew').onclick = function () { reminderForm(null); };
+    });
+  }
+
+  function reminderForm(pre) {
+    pre = pre || {};
+    ensureClients().then(function () {
+      var levels = [['INFO','Info'],['PRVA_OPOMENA','1. opomena'],['DRUGA_OPOMENA','2. opomena'],
+        ['PRED_UTUZENJE','Pred utuženje'],['DOGOVOR','Dogovor'],['RUCNA_BELESKA','Beleška']];
+      var channels = [['PHONE','Telefon'],['EMAIL','E-pošta'],['SMS','SMS'],['VIBER','Viber'],
+        ['WHATSAPP','WhatsApp'],['LETTER','Pismo'],['IN_PERSON','Lično'],['OTHER','Ostalo']];
+      var results = [['NO_RESPONSE','Bez odgovora'],['PROMISED_PAYMENT','Obećana uplata'],['DISPUTE','Sporno'],
+        ['PAID_AFTER_REMINDER','Plaćeno posle'],['REFUSED','Odbijeno'],['WRONG_CONTACT','Pogrešan kontakt'],
+        ['RESCHEDULED','Odloženo'],['OTHER','Ostalo']];
+      function opts(arr, sel) { return arr.map(function (x) { return '<option value="' + x[0] + '"' + (sel === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join(''); }
+
+      var body = '<div class="form-grid">' +
+        '<div><label class="req">Klijent</label><select id="rfClient">' + clientOptions(pre.clientId) + '</select></div>' +
+        '<div><label>Firma</label><select id="rfCompany"><option value="">—</option>' + companyOptions('', false) + '</select></div>' +
+        '<div><label class="req">Datum</label><input id="rfDate" type="date" value="' + todayIso() + '"></div>' +
+        '<div><label class="req">Nivo</label><select id="rfLevel">' + opts(levels, pre.suggestedLevel || 'PRVA_OPOMENA') + '</select></div>' +
+        '<div><label>Kanal</label><select id="rfChannel">' + opts(channels, 'PHONE') + '</select></div>' +
+        '<div><label>Rezultat</label><select id="rfResult">' + opts(results, 'NO_RESPONSE') + '</select></div>' +
+        '<div><label>Obećani datum uplate</label><input id="rfPromiseDate" type="date"></div>' +
+        '<div><label>Obećani iznos (RSD)</label><input id="rfPromiseAmt" type="number" step="0.01"></div>' +
+        '<div><label>Sledeća akcija (datum)</label><input id="rfNext" type="date"></div>' +
+        '<div class="full"><label>Napomena</label><textarea id="rfNote" rows="2"></textarea></div>' +
+        '</div>';
+      openModal('Nova opomena / kontakt', body,
+        '<button class="btn" id="rfCancel">Otkaži</button><button class="btn btn-primary" id="rfSave">Sačuvaj</button>', true);
+      el('rfCancel').onclick = closeModal;
+      el('rfSave').onclick = function () {
+        var data = {
+          clientId: el('rfClient').value, companyId: el('rfCompany').value,
+          reminderDate: el('rfDate').value, reminderLevel: el('rfLevel').value,
+          channel: el('rfChannel').value, result: el('rfResult').value,
+          promiseToPayDate: el('rfPromiseDate').value, promiseAmountRsd: el('rfPromiseAmt').value,
+          nextActionDate: el('rfNext').value, note: el('rfNote').value.trim()
+        };
+        if (!data.clientId) { toast('Izaberite klijenta.', 'error'); return; }
+        el('rfSave').disabled = true;
+        api('saveReminderLog', data).then(function (r) {
+          el('rfSave').disabled = false;
+          if (r && r.ok) { toast('Opomena zabeležena.'); closeModal(); navigate('reminders'); }
+          else toast((r && r.error) || 'Greška.', 'error');
+        }).catch(function (e) { el('rfSave').disabled = false; toast(e.message || String(e), 'error'); });
+      };
+    });
+  }
+
+  /* ============================================================
+     IZVEŠTAJI
+     ============================================================ */
+  ROUTES.reports = function () {
+    var html = '<div class="pill-tabs" id="repTabs">' +
+      '<div class="pill active" data-r="collection">Naplata</div>' +
+      '<div class="pill" data-r="aging">Starost duga</div>' +
+      '<div class="pill" data-r="top">Top dužnici</div>' +
+      '<div class="pill" data-r="eur">EUR fakture</div>' +
+      '<div class="pill" data-r="cash">Gotovinski</div>' +
+      '<div class="pill" data-r="reminders">Opomene</div>' +
+      '</div><div id="repBody"></div>';
+    el('content').innerHTML = html;
+    $all('#repTabs .pill').forEach(function (p) {
+      p.onclick = function () {
+        $all('#repTabs .pill').forEach(function (x) { x.classList.remove('active'); });
+        p.classList.add('active');
+        repLoad(p.getAttribute('data-r'));
+      };
+    });
+    repLoad('collection');
+  };
+
+  function repLoad(which) {
+    el('repBody').innerHTML = '<div class="loading-block"><span class="spinner dark"></span></div>';
+    var f = baseFilters();
+    var map = {
+      collection: ['getCollectionReport', repCollection],
+      aging: ['getAgingReport', repAging],
+      top: ['getTopDebtorsReport', repTop],
+      eur: ['getEurInvoiceReport', repEur],
+      cash: ['getCashDebtReport', repCash],
+      reminders: ['getReminderMetrics', repReminders]
+    };
+    var entry = map[which];
+    api(entry[0], f).then(function (res) {
+      if (!res || !res.ok) { el('repBody').innerHTML = '<div class="login-error">' + esc((res && res.error) || 'Greška') + '</div>'; return; }
+      entry[1](res);
+    }).catch(function (e) { el('repBody').innerHTML = '<div class="login-error">' + esc(e.message || String(e)) + '</div>'; });
+  }
+
+  function repPanel(title, inner, exportFn) {
+    var btn = exportFn && can('export') ? '<button class="btn btn-sm" id="repExport">Izvoz CSV</button>' : '';
+    el('repBody').innerHTML = '<div class="panel"><div class="panel-head"><h3>' + esc(title) + '</h3>' + btn + '</div>' +
+      '<div class="panel-body table-wrap">' + inner + '</div></div>';
+    if (exportFn && el('repExport')) el('repExport').onclick = exportFn;
+  }
+
+  function repCollection(res) {
+    var r = res.report;
+    var inner = '<div class="kpi-grid" style="margin-bottom:14px">' +
+      '<div class="kpi"><div class="label">Zaduženo</div><div class="value">' + money(r.chargedRsd) + '</div></div>' +
+      '<div class="kpi"><div class="label">Naplaćeno</div><div class="value" style="color:var(--green)">' + money(r.paidRsd) + '</div></div>' +
+      '<div class="kpi"><div class="label">Otvoreno</div><div class="value">' + money(r.openRsd) + '</div></div>' +
+      '<div class="kpi"><div class="label">Stopa naplate</div><div class="value">' + r.collectionRatePct + '%</div></div>' +
+      '</div><div class="chart-box"><canvas id="repTrend"></canvas></div>';
+    repPanel('Izveštaj naplate', inner);
+    if (r.trend) drawTrendChart2('repTrend', r.trend);
+  }
+
+  function drawTrendChart2(id, trend) {
+    var ctx = el(id); if (!ctx || typeof Chart === 'undefined') return;
+    STATE.charts[id] = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: (trend.labels || []).map(dateSr), datasets: [
+        { label: 'Zaduženja', data: trend.charged || [], backgroundColor: 'rgba(37,99,235,.7)' },
+        { label: 'Naplate', data: trend.paid || [], backgroundColor: 'rgba(22,163,74,.7)' }
+      ] },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: function (v) { return num(v); } } } } }
+    });
+  }
+
+  function repAging(res) {
+    var r = res.report;
+    var h = '<table class="data"><thead><tr><th>Klijent</th>' +
+      r.buckets.map(function (b) { return '<th class="num">' + b + '</th>'; }).join('') +
+      '<th class="num">Ukupno</th></tr></thead><tbody>';
+    r.rows.forEach(function (row) {
+      h += '<tr><td>' + esc(row.clientName) + '</td>' +
+        r.buckets.map(function (b) { return '<td class="num">' + (row[b] ? money(row[b]) : '—') + '</td>'; }).join('') +
+        '<td class="num"><b>' + money(row.total) + '</b></td></tr>';
+    });
+    h += '</tbody><tfoot><tr class="totals-row"><td>UKUPNO</td>' +
+      r.buckets.map(function (b) { return '<td class="num">' + money(r.total[b]) + '</td>'; }).join('') +
+      '<td class="num">' + money(r.buckets.reduce(function (a, b) { return a + r.total[b]; }, 0)) + '</td></tr></tfoot></table>';
+    repPanel('Starost duga po klijentima', h, function () {
+      var out = [['Klijent'].concat(r.buckets).concat(['Ukupno'])];
+      r.rows.forEach(function (row) { out.push([row.clientName].concat(r.buckets.map(function (b) { return num(row[b]); })).concat([num(row.total)])); });
+      downloadCsv('aging.csv', out); toast('Izvezeno.');
+    });
+  }
+
+  function repTop(res) {
+    var rows = res.report.rows;
+    var h = '<table class="data"><thead><tr><th>#</th><th>Klijent</th><th class="num">Otvoreno</th></tr></thead><tbody>';
+    rows.forEach(function (r, i) { h += '<tr><td>' + (i + 1) + '</td><td>' + esc(r.clientName) + '</td><td class="num">' + money(r.openRsd) + '</td></tr>'; });
+    h += '</tbody></table>';
+    repPanel('Top dužnici', rows.length ? h : '<div class="empty">Nema dugovanja.</div>', function () {
+      var out = [['Klijent', 'Otvoreno RSD']]; rows.forEach(function (r) { out.push([r.clientName, num(r.openRsd)]); });
+      downloadCsv('top_duznici.csv', out); toast('Izvezeno.');
+    });
+  }
+
+  function repEur(res) {
+    var r = res.report;
+    var h = '<table class="data"><thead><tr><th>Faktura</th><th>Klijent</th><th class="num">Iznos EUR</th><th class="num">Kurs</th>' +
+      '<th class="num">Iznos RSD</th><th class="num">Otvoreno EUR</th><th class="num">Otvoreno RSD</th></tr></thead><tbody>';
+    r.rows.forEach(function (x) {
+      h += '<tr><td>' + esc(x.invoiceNumber || '—') + '</td><td>' + esc(x.clientName) + '</td>' +
+        '<td class="num">' + eur(x.originalEur) + '</td><td class="num">' + num(x.fxRate) + '</td>' +
+        '<td class="num">' + money(x.amountRsd) + '</td><td class="num">' + eur(x.openEur) + '</td>' +
+        '<td class="num">' + money(x.openRsd) + '</td></tr>';
+    });
+    h += '</tbody><tfoot><tr class="totals-row"><td colspan="2">UKUPNO</td><td class="num">' + eur(r.totals.eur) + '</td><td></td>' +
+      '<td class="num">' + money(r.totals.rsd) + '</td><td class="num">' + eur(r.totals.openEur) + '</td><td class="num">' + money(r.totals.openRsd) + '</td></tr></tfoot></table>';
+    repPanel('EUR fakture', r.rows.length ? h : '<div class="empty">Nema EUR faktura.</div>', function () {
+      var out = [['Faktura', 'Klijent', 'EUR', 'Kurs', 'RSD', 'Otvoreno EUR', 'Otvoreno RSD']];
+      r.rows.forEach(function (x) { out.push([x.invoiceNumber, x.clientName, num(x.originalEur), x.fxRate, num(x.amountRsd), num(x.openEur), num(x.openRsd)]); });
+      downloadCsv('eur_fakture.csv', out); toast('Izvezeno.');
+    });
+  }
+
+  function repCash(res) {
+    var r = res.report;
+    var h = '<table class="data"><thead><tr><th>Dokument</th><th>Klijent</th><th class="num">Zaduženo</th><th class="num">Plaćeno</th><th class="num">Otvoreno</th></tr></thead><tbody>';
+    r.rows.forEach(function (x) {
+      h += '<tr><td>' + esc(x.documentNumber || '—') + '</td><td>' + esc(x.clientName) + '</td>' +
+        '<td class="num">' + money(x.amountRsd) + '</td><td class="num">' + money(x.paidRsd) + '</td><td class="num">' + money(x.openRsd) + '</td></tr>';
+    });
+    h += '</tbody><tfoot><tr class="totals-row"><td colspan="2">UKUPNO</td><td class="num">' + money(r.totals.charged) + '</td>' +
+      '<td class="num">' + money(r.totals.paid) + '</td><td class="num">' + money(r.totals.open) + '</td></tr></tfoot></table>';
+    repPanel('Gotovinska zaduženja', r.rows.length ? h : '<div class="empty">Nema gotovinskih zaduženja.</div>', function () {
+      var out = [['Dokument', 'Klijent', 'Zaduženo', 'Plaćeno', 'Otvoreno']];
+      r.rows.forEach(function (x) { out.push([x.documentNumber, x.clientName, num(x.amountRsd), num(x.paidRsd), num(x.openRsd)]); });
+      downloadCsv('gotovinski.csv', out); toast('Izvezeno.');
+    });
+  }
+
+  function repReminders(res) {
+    var m = res.metrics;
+    function tbl(title, obj, labelFn) {
+      var keys = Object.keys(obj || {});
+      if (!keys.length) return '';
+      var h = '<div class="panel" style="margin-bottom:14px"><div class="panel-head"><h3>' + title + '</h3></div><div class="panel-body table-wrap"><table class="data"><tbody>';
+      keys.forEach(function (k) { h += '<tr><td>' + esc(labelFn ? labelFn(k) : k) + '</td><td class="num">' + obj[k] + '</td></tr>'; });
+      return h + '</tbody></table></div></div>';
+    }
+    var inner = '<div class="kpi-grid" style="margin-bottom:14px">' +
+      '<div class="kpi"><div class="label">Ukupno kontakata</div><div class="value">' + m.total + '</div></div>' +
+      '<div class="kpi"><div class="label">Plaćeno posle opomene</div><div class="value" style="color:var(--green)">' + m.paidAfterReminder + '</div></div>' +
+      '<div class="kpi"><div class="label">Održana obećanja</div><div class="value">' + m.promisesKept + '</div></div>' +
+      '<div class="kpi"><div class="label">Prekršena obećanja</div><div class="value red">' + m.promisesBroken + '</div></div>' +
+      '<div class="kpi"><div class="label">Stopa uspeha</div><div class="value">' + m.successRate + '%</div></div>' +
+      '</div>';
+    el('repBody').innerHTML = '<div class="panel"><div class="panel-body">' + inner + '</div></div>' +
+      tbl('Po nivou', m.byLevel, reminderLevelLabel) + tbl('Po kanalu', m.byChannel, channelLabel) +
+      tbl('Po rezultatu', m.byResult, reminderResultLabel) + tbl('Po korisniku', m.byUser, null);
+  }
+
+  /* ============================================================
+     KORISNICI (samo ADMIN)
+     ============================================================ */
+  ROUTES.users = function () {
+    if (STATE.user.role !== 'ADMIN') { errBox('Nemate dozvolu.'); return; }
+    loading('Učitavanje korisnika…');
+    api('listUsers').then(function (res) {
+      if (!res || !res.ok) return errBox((res && res.error) || 'Greška.');
+      renderUsers(res.users);
+    }).catch(function (e) { errBox(e.message || String(e)); });
+  };
+
+  function renderUsers(users) {
+    var html = '<div class="right-actions"><button class="btn btn-sm" id="usPwd">Promeni moju lozinku</button>' +
+      '<button class="btn btn-primary" id="usNew">+ Novi korisnik</button></div>';
+    html += '<div class="panel"><div class="panel-body table-wrap">';
+    html += '<table class="data"><thead><tr><th>Korisničko ime</th><th>Ime</th><th>Uloga</th><th>Firme</th>' +
+      '<th>Aktivan</th><th>Poslednja prijava</th><th></th></tr></thead><tbody>';
+    users.forEach(function (u) {
+      var active = (u.active === true || u.active === 'true');
+      html += '<tr><td><b>' + esc(u.username) + '</b></td><td>' + esc(u.fullName || '—') + '</td>' +
+        '<td>' + esc(ROLE_LABEL[u.role] || u.role) + '</td>' +
+        '<td>' + (u.companyAccess === 'ALL' ? 'Sve' : esc(u.companyAccess)) + '</td>' +
+        '<td>' + (active ? '<span class="badge valid">DA</span>' : '<span class="badge gray">NE</span>') + '</td>' +
+        '<td>' + (u.lastLoginAt ? dateSr(u.lastLoginAt) : '—') +
+        (Number(u.failedAttempts) > 0 ? ' <span class="badge error" title="Neuspeli pokušaji">' + u.failedAttempts + '</span>' : '') + '</td>' +
+        '<td class="num"><button class="btn btn-sm" data-uedit="' + esc(u.userId) + '">Izmeni</button></td></tr>';
+    });
+    html += '</tbody></table></div></div>';
+    el('content').innerHTML = html;
+    el('usNew').onclick = function () { userForm(null); };
+    el('usPwd').onclick = changePasswordForm;
+    $all('[data-uedit]').forEach(function (b) {
+      b.onclick = function () { userForm(users.filter(function (x) { return x.userId === b.getAttribute('data-uedit'); })[0]); };
+    });
+  }
+
+  function userForm(u) {
+    u = u || {};
+    var isEdit = !!u.userId;
+    var roles = [['ADMIN','Administrator'],['FINANCE_MANAGER','Finansije'],['COLLECTION_AGENT','Naplata'],['VIEWER','Pregled'],['AUDITOR','Revizor']];
+    var access = [['ALL','Sve firme']].concat((STATE.companies || []).map(function (c) { return [c.companyId, c.companyName]; }));
+    function opts(arr, sel) { return arr.map(function (x) { return '<option value="' + esc(x[0]) + '"' + (sel === x[0] ? ' selected' : '') + '>' + esc(x[1]) + '</option>'; }).join(''); }
+    var body = '<div class="form-grid">' +
+      '<div><label class="req">Korisničko ime</label><input id="ufUser" value="' + esc(u.username || '') + '"' + (isEdit ? ' disabled' : '') + '></div>' +
+      '<div><label>Ime i prezime</label><input id="ufName" value="' + esc(u.fullName || '') + '"></div>' +
+      '<div><label>E-pošta</label><input id="ufEmail" value="' + esc(u.email || '') + '"></div>' +
+      '<div><label class="req">Uloga</label><select id="ufRole">' + opts(roles, u.role || 'VIEWER') + '</select></div>' +
+      '<div><label class="req">Pristup firmama</label><select id="ufAccess">' + opts(access, u.companyAccess || 'ALL') + '</select></div>' +
+      '<div><label>' + (isEdit ? 'Nova lozinka (opciono)' : 'Lozinka (min. 6)') + '</label><input id="ufPass" type="password"></div>' +
+      (isEdit ? '<div><label>Aktivan</label><select id="ufActive"><option value="true"' + ((u.active === true || u.active === 'true') ? ' selected' : '') + '>DA</option><option value="false"' + (!(u.active === true || u.active === 'true') ? ' selected' : '') + '>NE</option></select></div>' +
+        '<div><label>Otključaj (reset pokušaja)</label><select id="ufReset"><option value="false">Ne</option><option value="true">Da</option></select></div>' : '') +
+      '</div>';
+    openModal(isEdit ? 'Izmena korisnika' : 'Novi korisnik', body,
+      '<button class="btn" id="ufCancel">Otkaži</button><button class="btn btn-primary" id="ufSave">Sačuvaj</button>');
+    el('ufCancel').onclick = closeModal;
+    el('ufSave').onclick = function () {
+      var data = {
+        userId: u.userId || null, username: el('ufUser').value.trim(), fullName: el('ufName').value.trim(),
+        email: el('ufEmail').value.trim(), role: el('ufRole').value, companyAccess: el('ufAccess').value,
+        newPassword: el('ufPass').value
+      };
+      if (isEdit) { data.active = el('ufActive').value; data.resetLock = el('ufReset').value === 'true'; }
+      if (!data.username) { toast('Korisničko ime je obavezno.', 'error'); return; }
+      el('ufSave').disabled = true;
+      api('saveUser', data).then(function (r) {
+        el('ufSave').disabled = false;
+        if (r && r.ok) { toast('Korisnik sačuvan.'); closeModal(); ROUTES.users(); }
+        else toast((r && r.error) || 'Greška.', 'error');
+      }).catch(function (e) { el('ufSave').disabled = false; toast(e.message || String(e), 'error'); });
+    };
+  }
+
+  function changePasswordForm() {
+    var body = '<div class="form-grid">' +
+      '<div class="full"><label class="req">Stara lozinka</label><input id="cpOld" type="password"></div>' +
+      '<div class="full"><label class="req">Nova lozinka (min. 6)</label><input id="cpNew" type="password"></div>' +
+      '<div class="full"><label class="req">Ponovi novu lozinku</label><input id="cpNew2" type="password"></div>' +
+      '</div>';
+    openModal('Promena lozinke', body,
+      '<button class="btn" id="cpCancel">Otkaži</button><button class="btn btn-primary" id="cpSave">Promeni</button>');
+    el('cpCancel').onclick = closeModal;
+    el('cpSave').onclick = function () {
+      var o = el('cpOld').value, n = el('cpNew').value, n2 = el('cpNew2').value;
+      if (n.length < 6) { toast('Nova lozinka mora imati najmanje 6 karaktera.', 'error'); return; }
+      if (n !== n2) { toast('Lozinke se ne poklapaju.', 'error'); return; }
+      el('cpSave').disabled = true;
+      gcall('changePassword', STATE.token, o, n).then(function (r) {
+        el('cpSave').disabled = false;
+        if (r && r.ok) { toast('Lozinka promenjena.'); closeModal(); }
+        else toast((r && r.error) || 'Greška.', 'error');
+      }).catch(function (e) { el('cpSave').disabled = false; toast(e.message || String(e), 'error'); });
+    };
+  }
+
+  /* ============================================================
+     PODEŠAVANJA (samo ADMIN)
+     ============================================================ */
+  var SETTING_LABELS = {
+    'defaultPaymentTermsDays': 'Podrazumevani rok plaćanja (dana)',
+    'collectionAgent.canEnterPayment': 'Agent naplate može unositi naplate (true/false)',
+    'viewer.canExport': 'Pregled može izvoziti (true/false)',
+    'company.defaultCurrency': 'Podrazumevana valuta',
+    'reminder.firstLevelDays': 'Dana do prve opomene',
+    'reminder.secondLevelDays': 'Dana do druge opomene'
+  };
+
+  ROUTES.settings = function () {
+    if (STATE.user.role !== 'ADMIN') { errBox('Nemate dozvolu.'); return; }
+    loading('Učitavanje podešavanja…');
+    api('listSettings').then(function (res) {
+      if (!res || !res.ok) return errBox((res && res.error) || 'Greška.');
+      renderSettings(res.settings);
+    }).catch(function (e) { errBox(e.message || String(e)); });
+  };
+
+  function renderSettings(settings) {
+    var html = '<div class="panel"><div class="panel-head"><h3>Podešavanja sistema</h3></div><div class="panel-body table-wrap">';
+    html += '<table class="data"><thead><tr><th>Ključ</th><th>Opis</th><th>Vrednost</th><th></th></tr></thead><tbody>';
+    settings.forEach(function (st) {
+      html += '<tr><td><code>' + esc(st.settingKey) + '</code></td>' +
+        '<td>' + esc(st.description || SETTING_LABELS[st.settingKey] || '') + '</td>' +
+        '<td><input class="setInp" data-key="' + esc(st.settingKey) + '" value="' + esc(st.settingValue) + '" ' +
+        'style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;min-width:160px"></td>' +
+        '<td class="num"><button class="btn btn-sm btn-primary" data-savekey="' + esc(st.settingKey) + '">Sačuvaj</button></td></tr>';
+    });
+    html += '</tbody></table></div></div>';
+    el('content').innerHTML = html;
+    $all('[data-savekey]').forEach(function (b) {
+      b.onclick = function () {
+        var key = b.getAttribute('data-savekey');
+        var inp = $('.setInp[data-key="' + key + '"]');
+        b.disabled = true;
+        api('saveSetting', key, inp.value).then(function (r) {
+          b.disabled = false;
+          if (r && r.ok) toast('Sačuvano.'); else toast((r && r.error) || 'Greška.', 'error');
+        }).catch(function (e) { b.disabled = false; toast(e.message || String(e), 'error'); });
+      };
+    });
+  }
+
+  /* ============================================================
+     AUDIT LOG
+     ============================================================ */
+  ROUTES.audit = function () {
+    if (STATE.user.role !== 'ADMIN' && STATE.user.role !== 'AUDITOR') { errBox('Nemate dozvolu.'); return; }
+    loading('Učitavanje audit loga…');
+    api('getAuditLog', {}).then(function (res) {
+      if (!res || !res.ok) return errBox((res && res.error) || 'Greška.');
+      renderAudit(res.entries);
+    }).catch(function (e) { errBox(e.message || String(e)); });
+  };
+
+  function renderAudit(entries) {
+    var html = '<div class="panel"><div class="panel-head"><h3>Audit log (poslednjih ' + entries.length + ')</h3></div><div class="panel-body table-wrap">';
+    if (!entries.length) { el('content').innerHTML = html + '<div class="empty">Nema zapisa.</div></div></div>'; return; }
+    html += '<table class="data"><thead><tr><th>Vreme</th><th>Korisnik</th><th>Akcija</th><th>Entitet</th><th>ID</th></tr></thead><tbody>';
+    entries.forEach(function (e) {
+      html += '<tr><td>' + esc(fmtDateTime(e.timestamp)) + '</td><td>' + esc(e.username || '—') + '</td>' +
+        '<td><span class="badge gray">' + esc(e.action) + '</span></td><td>' + esc(e.entityType) + '</td>' +
+        '<td style="font-size:11px;color:var(--muted)">' + esc(e.entityId || '') + '</td></tr>';
+    });
+    html += '</tbody></table></div></div>';
+    el('content').innerHTML = html;
+  }
+
+  function fmtDateTime(v) {
+    if (!v) return '';
+    var d = new Date(v);
+    if (isNaN(d.getTime())) return String(v);
+    return dateSr(d) + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+  }
+
+  /* ============================================================
+     INICIJALIZACIJA / WIRING
+     ============================================================ */
+  function wireEvents() {
+    // Login
+    el('loginBtn').onclick = doLogin;
+    el('loginPass').onkeydown = function (e) { if (e.key === 'Enter') doLogin(); };
+    el('loginUser').onkeydown = function (e) { if (e.key === 'Enter') el('loginPass').focus(); };
+
+    // Logout
+    el('logoutBtn').onclick = doLogout;
+
+    // Navigacija
+    $all('#nav .nav-item').forEach(function (item) {
+      item.onclick = function () { navigate(item.getAttribute('data-route')); };
+    });
+
+    // Globalni filteri -> ponovo iscrtaj trenutnu rutu
+    el('globalCompany').onchange = function () { navigate(STATE.route); };
+    el('globalPeriod').onchange = function () { navigate(STATE.route); };
+
+    // Modal
+    el('modalClose').onclick = closeModal;
+    el('modalOverlay').onclick = function (e) { if (e.target === el('modalOverlay')) closeModal(); };
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && el('modalOverlay').classList.contains('show')) closeModal();
+    });
+  }
+
+  function init() {
+    wireEvents();
+    el('loginView').style.display = 'flex';
+    el('appView').style.display = 'none';
+    el('loginUser').focus();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+})();
+</script>
+
+</body>
+</html>
